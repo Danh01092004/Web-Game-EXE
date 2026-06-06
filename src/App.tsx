@@ -86,7 +86,7 @@ function Navbar({ activePage, onNavigate, navRef }: NavbarProps) {
             onClick={() => onNavigate("HOME")}
             className="flex items-center gap-3 shrink-0 min-w-[180px]"
           >
-            <img src="/Animation.png" alt="Đạo Võ emblem" className="h-8 w-8" />
+            <img src="./Animation.png" alt="Đạo Võ emblem" className="h-8 w-8" />
             <div className="leading-tight text-left">
               <p className="text-[10px] uppercase tracking-[0.35em] text-white/50">Đạo Võ</p>
               <p className="text-sm font-semibold text-white">Vovinam đỉnh cao</p>
