@@ -1,8 +1,16 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { AnimatePresence, motion, useMotionTemplate, useScroll, useTransform } from "motion/react";
+import {
+  AnimatePresence,
+  motion,
+  useMotionTemplate,
+  useScroll,
+  useTransform,
+} from "motion/react";
 
+/* ─── Types ─── */
 type Page = "HOME" | "ABOUT" | "CONTACT";
 
+/* ─── Data ─── */
 const navItems: { label: Page }[] = [
   { label: "HOME" },
   { label: "ABOUT" },
@@ -10,17 +18,79 @@ const navItems: { label: Page }[] = [
 ];
 
 const teamMembers = [
-  "Phan Thiên Bảo",
-  "Huỳnh Đức Anh",
-  "Trần Tấn Phát",
-  "Vũ Nguyễn Phương",
-  "Lê Nguyễn Gia Hưng",
-  "Nguyễn Hoàng Dũng",
+  { name: "Phan Thiên Bảo",     role: "Game Designer" },
+  { name: "Huỳnh Đức Anh",      role: "Lead Developer" },
+  { name: "Trần Tấn Phát",      role: "Programmer" },
+  { name: "Vũ Nguyễn Phương",   role: "Artist" },
+  { name: "Lê Nguyễn Gia Hưng", role: "Programmer" },
+  { name: "Nguyễn Hoàng Dũng",  role: "QA & Story" },
 ];
 
-/* ════════════════════════════════════════
+const screenshots = [
+  {
+    src: "./GameImg/1.jpg",
+    caption: "Khu Phố Sài Gòn",
+    tag: "Thế Giới",
+    description: "Con hẻm quen thuộc, những mái nhà cũ kỹ và tiếng rao hàng — bối cảnh Sài Gòn được tái hiện chân thực trong từng góc phố.",
+  },
+  {
+    src: "./GameImg/2.jpg",
+    caption: "Bưu điên Việt Nam",
+    tag: "Địa Điểm",
+    description: "Nơi mọi người thường ghé. Bưu điện nơi góc phố — điểm xuất phát của nhiều cuộc trò chuyện, nhiều manh mối bị bỏ lỡ.",
+  },
+  {
+    src: "./GameImg/3.jpg",
+    caption: "Tiệm Sửa Xe Chú 4",
+    tag: "Trung Tâm",
+    description: "Căn cứ chính của Nam. Mỗi chiếc xe được sửa là một câu chuyện. Mỗi vị khách có thể là một manh mối — hoặc một mối nguy.",
+  },
+  {
+    src: "./GameImg/4.png",
+    caption: "Đối Thoại & Cốt Truyện",
+    tag: "Gameplay",
+    description: "Lựa chọn từng câu thoại sẽ thay đổi mối quan hệ và hướng đi của câu chuyện. Sự thật chỉ lộ diện với người biết cách hỏi đúng câu.",
+  },
+];
+
+/* ════════════════════════════════════════════════
+   VIDEO BACKGROUND
+════════════════════════════════════════════════ */
+function VideoBackground() {
+  return (
+    <>
+      <video
+        style={{
+          position: "fixed", top: 0, left: 0,
+          width: "100%", height: "100%",
+          objectFit: "cover", zIndex: -2,
+          filter: "brightness(0.32) saturate(0.8)",
+          pointerEvents: "none",
+        }}
+        src="./Movie_001.mp4"
+        autoPlay loop muted playsInline
+      />
+      {/* Multi-stop overlay for cinematic depth */}
+      <div
+        style={{
+          position: "fixed", top: 0, left: 0,
+          width: "100%", height: "100%", zIndex: -1,
+          background:
+            "linear-gradient(to bottom," +
+            "rgba(6,8,16,0.5) 0%," +
+            "rgba(6,8,16,0.15) 35%," +
+            "rgba(6,8,16,0.25) 65%," +
+            "rgba(6,8,16,0.85) 100%)",
+          pointerEvents: "none",
+        }}
+      />
+    </>
+  );
+}
+
+/* ════════════════════════════════════════════════
    NAVBAR
-════════════════════════════════════════ */
+════════════════════════════════════════════════ */
 interface NavbarProps {
   activePage: Page;
   onNavigate: (page: Page) => void;
@@ -29,37 +99,32 @@ interface NavbarProps {
 
 function Navbar({ activePage, onNavigate, navRef }: NavbarProps) {
   const { scrollY } = useScroll();
-  const navBlur    = useTransform(scrollY, [0, 200], [12, 20]);
-  const navOpacity = useTransform(scrollY, [0, 200], [0.75, 0.92]);
-  const navBg      = useMotionTemplate`rgba(8, 12, 18, ${navOpacity})`;
-  const navBlurVal = useMotionTemplate`blur(${navBlur}px)`;
+  const bgOpacity = useTransform(scrollY, [0, 120], [0, 0.92]);
+  const navBg = useMotionTemplate`rgba(6,8,16,${bgOpacity})`;
 
   const [hidden, setHidden] = useState(false);
   const lastY = useRef(0);
-
   useEffect(() => {
     return scrollY.on("change", (y) => {
-      setHidden(y > lastY.current && y > 80);
+      setHidden(y > lastY.current && y > 120);
       lastY.current = y;
     });
   }, [scrollY]);
 
   const [hovered, setHovered] = useState<string | null>(null);
-  const listRef    = useRef<HTMLDivElement>(null);
-  const itemRefs   = useRef(new Map<string, HTMLButtonElement>());
+  const listRef = useRef<HTMLDivElement>(null);
+  const itemRefs = useRef(new Map<string, HTMLButtonElement>());
   const [indicator, setIndicator] = useState({ x: 0, width: 0 });
-
   const target = hovered ?? activePage;
 
   const updateIndicator = () => {
-    const container = listRef.current;
-    const btn = itemRefs.current.get(target);
-    if (!container || !btn) return;
-    const cr = container.getBoundingClientRect();
-    const br = btn.getBoundingClientRect();
+    const c = listRef.current;
+    const b = itemRefs.current.get(target);
+    if (!c || !b) return;
+    const cr = c.getBoundingClientRect();
+    const br = b.getBoundingClientRect();
     setIndicator({ x: br.left - cr.left, width: br.width });
   };
-
   useLayoutEffect(() => { updateIndicator(); }, [target]);
   useEffect(() => {
     window.addEventListener("resize", updateIndicator);
@@ -68,108 +133,120 @@ function Navbar({ activePage, onNavigate, navRef }: NavbarProps) {
   }, []);
 
   return (
-    /* fixed — top-0 left-0 right-0 — never moves */
     <motion.header
       ref={navRef}
-      className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-6xl pointer-events-none"
-      animate={{ y: hidden ? -120 : 0, opacity: hidden ? 0 : 1 }}
-      transition={{ duration: 0.3, ease: "easeInOut" }}
+      className="fixed top-0 left-0 right-0 z-50"
+      animate={{ y: hidden ? -80 : 0, opacity: hidden ? 0 : 1 }}
+      transition={{ duration: 0.22, ease: "easeInOut" }}
     >
       <motion.div
-        className="pointer-events-auto w-full max-w-6xl rounded-full px-5 md:px-8 py-3 border border-white/10 shadow-[0_0_40px_rgba(59,130,246,0.08)]"
-        style={{ backdropFilter: navBlurVal, backgroundColor: navBg }}
+        className="w-full flex items-center justify-between px-8 md:px-12 lg:px-16"
+        style={{
+          height: "68px",
+          backgroundColor: navBg,
+          backdropFilter: "blur(16px)",
+          borderBottom: "1px solid rgba(255,255,255,0.06)",
+        }}
       >
-        <div className="relative flex items-center gap-6">
-          {/* Logo */}
-          <button
-            type="button"
-            onClick={() => onNavigate("HOME")}
-            className="flex items-center gap-3 shrink-0 min-w-[180px]"
+        {/* Logo */}
+        <button
+          type="button"
+          onClick={() => onNavigate("HOME")}
+          className="flex items-center gap-3 shrink-0"
+        >
+          <img src="./Animation.png" alt="logo" style={{ height: 30, width: 30 }} />
+          <span
+            className="font-display font-semibold text-white tracking-widest uppercase"
+            style={{ fontSize: "0.95rem", letterSpacing: "0.12em" }}
           >
-            <img src="./Animation.png" alt="Đạo Võ emblem" className="h-8 w-8" />
-            <div className="leading-tight text-left">
-              <p className="text-sm font-semibold text-white">Tiệm sửa xe Chú 4</p>
-            </div>
-          </button>
+            Tiệm Sửa Xe Chú 4
+          </span>
+        </button>
 
-          {/* Nav links */}
-          <div className="flex-1 flex justify-center">
-            <div
-              ref={listRef}
-              className="relative flex items-center gap-8 text-[11px] uppercase tracking-[0.35em] text-white/70"
-              onPointerLeave={() => setHovered(null)}
+        {/* Nav links */}
+        <div
+          ref={listRef}
+          className="relative hidden md:flex items-center"
+          style={{ gap: "4px" }}
+          onPointerLeave={() => setHovered(null)}
+        >
+          {navItems.map(({ label }) => (
+            <button
+              key={label}
+              type="button"
+              className="font-display font-medium uppercase transition-colors duration-200"
+              style={{
+                fontSize: "0.7rem",
+                letterSpacing: "0.2em",
+                padding: "8px 20px",
+                color: activePage === label ? "#e8c87d" : "rgba(255,255,255,0.55)",
+              }}
+              onPointerEnter={() => setHovered(label)}
+              onPointerMove={() => setHovered(label)}
+              onFocus={() => setHovered(label)}
+              onBlur={() => setHovered(null)}
+              onClick={() => onNavigate(label)}
+              ref={(node) => {
+                if (node) itemRefs.current.set(label, node);
+                else itemRefs.current.delete(label);
+              }}
             >
-              {navItems.map(({ label }) => (
-                <button
-                  key={label}
-                  type="button"
-                  className="relative px-4 py-2.5 transition-colors hover:text-white"
-                  onPointerEnter={() => setHovered(label)}
-                  onPointerMove={() => setHovered(label)}
-                  onFocus={() => setHovered(label)}
-                  onBlur={() => setHovered(null)}
-                  onClick={() => onNavigate(label)}
-                  ref={(node) => {
-                    if (node) itemRefs.current.set(label, node);
-                    else itemRefs.current.delete(label);
-                  }}
-                >
-                  {label}
-                </button>
-              ))}
-              {/* Sliding underline indicator */}
-              <motion.span
-                className="pointer-events-none absolute -bottom-1 left-0 h-[2px] rounded-full bg-white/70 shadow-[0_0_10px_rgba(255,255,255,0.35)]"
-                animate={{ x: indicator.x, width: indicator.width }}
-                transition={{ type: "spring", stiffness: 900, damping: 45, mass: 0.4 }}
-              />
-            </div>
-          </div>
-
-          <div className="min-w-[180px] shrink-0" aria-hidden />
+              {label}
+            </button>
+          ))}
+          {/* Animated underline */}
+          <motion.span
+            className="pointer-events-none absolute"
+            style={{ bottom: -1, left: 0, height: "1px", background: "#e8c87d" }}
+            animate={{ x: indicator.x, width: indicator.width }}
+            transition={{ type: "spring", stiffness: 800, damping: 40, mass: 0.4 }}
+          />
         </div>
 
-        {/* Glow pulse */}
-        <motion.div
-          className="pointer-events-none absolute inset-0 rounded-full"
-          animate={{ opacity: [0.3, 0.5] }}
-          transition={{ duration: 6, ease: "linear", repeat: Infinity, repeatType: "mirror" }}
-          style={{ boxShadow: "inset 0 0 20px rgba(255,255,255,0.07), 0 0 28px rgba(59,130,246,0.10)" }}
-        />
+        {/* CTA */}
+        <button
+          type="button"
+          onClick={() => onNavigate("CONTACT")}
+          className="btn-ghost hidden md:block"
+          style={{ padding: "9px 22px", fontSize: "0.68rem" }}
+        >
+          Follow Us
+        </button>
       </motion.div>
     </motion.header>
   );
 }
 
-/* ════════════════════════════════════════
+/* ════════════════════════════════════════════════
    PAGE CONTAINER
-════════════════════════════════════════ */
-function PageContainer({ children, topOffset }: { children: React.ReactNode; topOffset: number }) {
+════════════════════════════════════════════════ */
+function PageContainer({
+  children,
+  topOffset,
+}: {
+  children: React.ReactNode;
+  topOffset: number;
+}) {
   return (
-    <main
-      className="relative z-10 w-full min-h-screen flex flex-col items-center"
-      style={{ paddingTop: topOffset, paddingBottom: "8rem" }}
-    >
-      <div className="w-[92%] max-w-6xl">
-        <AnimatePresence mode="wait">
-          {children}
-        </AnimatePresence>
-      </div>
+    <main className="relative z-10 w-full" style={{ paddingTop: topOffset }}>
+      <AnimatePresence mode="wait">{children}</AnimatePresence>
     </main>
   );
 }
 
-/* ════════════════════════════════════════
-   SHARED — page fade wrapper
-════════════════════════════════════════ */
+/* ════════════════════════════════════════════════
+   PAGE FADE
+════════════════════════════════════════════════ */
 function PageFade({ id, children }: { id: string; children: React.ReactNode }) {
-  useLayoutEffect(() => { window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior }); }, [id]);
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+  }, [id]);
   return (
     <motion.div
       key={id}
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
+      exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
       className="w-full"
     >
@@ -178,216 +255,605 @@ function PageFade({ id, children }: { id: string; children: React.ReactNode }) {
   );
 }
 
-/* ════════════════════════════════════════
-   SHARED — section hero header
-════════════════════════════════════════ */
-function PageHero({ eyebrow, title, subtitle }: { eyebrow: string; title: string; subtitle: string }) {
+/* ════════════════════════════════════════════════
+   SECTION LABEL — reusable eyebrow
+════════════════════════════════════════════════ */
+function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
-    <section className="py-12 flex flex-col items-center text-center">
-      <motion.p className="text-sm uppercase tracking-[0.4em] text-white/35" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}>
-        {eyebrow}
-      </motion.p>
-      <motion.h1
-        className="mt-4 text-4xl md:text-6xl font-bold text-white tracking-tight"
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.08 }}
-      >
-        {title}
-      </motion.h1>
-      <motion.p
-        className="mt-4 text-base md:text-lg text-white/55 max-w-md mx-auto text-center"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.6, delay: 0.18 }}
-      >
-        {subtitle}
-      </motion.p>
-      <motion.div
-        className="mt-7 flex items-center justify-center gap-3"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5, delay: 0.28 }}
-      >
-        <div className="h-px w-20 bg-gradient-to-r from-transparent to-white/20" />
-        <div className="w-1.5 h-1.5 rounded-full bg-white/30" />
-        <div className="h-px w-20 bg-gradient-to-l from-transparent to-white/20" />
-      </motion.div>
-    </section>
+    <p className="label-eyebrow mb-4">{children}</p>
   );
 }
 
-/* ════════════════════════════════════════
-   HOME PAGE
-════════════════════════════════════════ */
-function HomePage({ onNavigate }: { onNavigate: (p: Page) => void }) {
+/* ════════════════════════════════════════════════
+   LIGHTBOX
+════════════════════════════════════════════════ */
+interface LightboxItem {
+  src: string;
+  caption: string;
+  tag: string;
+  description: string;
+}
+
+function Lightbox({ item, onClose }: { item: LightboxItem; onClose: () => void }) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handler);
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", handler);
+      document.body.style.overflow = "";
+    };
+  }, [onClose]);
+
   return (
-    <PageFade id="home">
-      {/* Hero */}
-      <section className="flex flex-col items-center justify-center min-h-[55vh] text-center py-16">
-        <motion.h1
-          className="text-5xl md:text-8xl font-bold text-white tracking-tight leading-tight"
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1.1, delay: 0.05, ease: "easeOut" }}
-        >
-          Tiệm Sửa Xe Chú 4
-        </motion.h1>
-        <motion.p
-          className="mt-5 text-base md:text-lg text-white/60 max-w-lg"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.9, delay: 0.35 }}
-        >
-          Khám phá thế giới Vovinam đỉnh cao — nơi tình thương kết thúc là lúc bạo lực lên ngôi
-        </motion.p>
+    <AnimatePresence>
+      <motion.div
+        className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.25 }}
+        onClick={onClose}
+      >
+        {/* Backdrop */}
+        <div className="absolute inset-0" style={{ background: "rgba(4,6,12,0.92)", backdropFilter: "blur(16px)" }} />
+
+        {/* Card */}
         <motion.div
-          className="mt-8 flex flex-wrap items-center justify-center gap-4"
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.6 }}
+          className="relative z-10 w-full flex flex-col overflow-hidden"
+          style={{ maxWidth: "900px", maxHeight: "90vh", background: "#0a0d16", border: "1px solid rgba(232,200,125,0.2)" }}
+          initial={{ opacity: 0, scale: 0.94, y: 24 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.94, y: 16 }}
+          transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+          onClick={(e) => e.stopPropagation()}
         >
+          {/* Close */}
           <button
             type="button"
-            onClick={() => onNavigate("ABOUT")}
-            className="inline-flex items-center gap-2 px-8 py-3 rounded-full bg-white/10 text-white text-sm font-medium backdrop-blur-md border border-white/15 hover:bg-white/20 transition-all duration-300"
+            onClick={onClose}
+            aria-label="Close"
+            className="absolute top-4 right-4 z-20 flex items-center justify-center transition-colors duration-200"
+            style={{
+              width: 36, height: 36,
+              background: "rgba(255,255,255,0.06)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              color: "rgba(255,255,255,0.6)",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = "rgba(232,200,125,0.15)";
+              (e.currentTarget as HTMLButtonElement).style.color = "#e8c87d";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.06)";
+              (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.6)";
+            }}
           >
-            Tìm hiểu thêm →
+            <svg viewBox="0 0 14 14" fill="none" style={{ width: 14, height: 14 }}>
+              <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            </svg>
           </button>
+
+          {/* Image */}
+          <div className="relative overflow-hidden" style={{ aspectRatio: "16/9", flexShrink: 0 }}>
+            <img src={item.src} alt={item.caption} className="w-full h-full object-cover" />
+            {/* Bottom gradient */}
+            <div
+              className="absolute bottom-0 left-0 right-0 pointer-events-none"
+              style={{ height: "40%", background: "linear-gradient(to top, #0a0d16, transparent)" }}
+            />
+          </div>
+
+          {/* Info */}
+          <div style={{ padding: "2rem 2.5rem 2.5rem" }}>
+            <span className="label-eyebrow mb-3 inline-block" style={{ opacity: 0.6 }}>{item.tag}</span>
+            <h2
+              className="font-display font-bold text-white uppercase"
+              style={{ fontSize: "clamp(1.4rem, 3vw, 2rem)", letterSpacing: "0.04em", lineHeight: 1.15, marginBottom: "1rem" }}
+            >
+              {item.caption}
+            </h2>
+            {/* Accent line */}
+            <div style={{ width: 40, height: 2, background: "#e8c87d", opacity: 0.6, marginBottom: "1.25rem" }} />
+            <p style={{ color: "rgba(255,255,255,0.55)", lineHeight: 1.8, fontSize: "0.92rem", maxWidth: "600px" }}>
+              {item.description}
+            </p>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+function HomePage({ onNavigate }: { onNavigate: (p: Page) => void }) {
+  const [lightbox, setLightbox] = useState<typeof screenshots[0] | null>(null);  return (
+    <PageFade id="home">
+
+      {/* ══ HERO ══ */}
+      <section
+        className="relative flex flex-col items-center justify-center text-center overflow-hidden"
+        style={{ minHeight: "100vh", padding: "0 1.5rem" }}
+      >
+        {/* Bottom fade */}
+        <div
+          className="absolute bottom-0 left-0 right-0 pointer-events-none"
+          style={{ height: "220px", background: "linear-gradient(to top, #060810 0%, transparent 100%)" }}
+        />
+
+        {/* Subtle horizontal light ray */}
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            top: "38%", left: "50%", transform: "translateX(-50%)",
+            width: "600px", height: "1px",
+            background: "linear-gradient(90deg, transparent, rgba(232,200,125,0.18), transparent)",
+            filter: "blur(2px)",
+          }}
+        />
+
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.15 }}
+          className="mb-6"
+        >
+          <span className="label-eyebrow" style={{ opacity: 0.6 }}>Dragon Tail Team &nbsp;·&nbsp; 2026</span>
+        </motion.div>
+
+        <motion.h1
+          className="font-display font-bold text-white uppercase"
+          style={{
+            fontSize: "clamp(2.6rem, 8.5vw, 6.5rem)",
+            lineHeight: 1.25,
+            letterSpacing: "0.04em",
+            textShadow: "0 0 120px rgba(232,200,125,0.12), 0 2px 40px rgba(0,0,0,0.6)",
+          }}
+          initial={{ opacity: 0, y: 32 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 1, delay: 0.05, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <span className="block">Tiệm Sửa Xe</span>
+          <span className="block mt-3" style={{ color: "#e8c87d" }}>Chú 4</span>
+        </motion.h1>
+
+        <motion.p
+          className="mt-8 text-white/55"
+          style={{ fontSize: "1.05rem", maxWidth: "480px", lineHeight: 1.7 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.9, delay: 0.55 }}
+        >
+          Khi công lý im lặng, liệu bạn có dám đứng lên?
+        </motion.p>
+
+        <motion.div
+          className="flex flex-wrap gap-4 justify-center mt-10"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 0.75 }}
+        >
+          <button type="button" className="btn-primary">Xem Trailer</button>
+          <button
+            type="button"
+            className="btn-ghost"
+            onClick={() => onNavigate("ABOUT")}
+          >
+            Tìm Hiểu Thêm
+          </button>
+        </motion.div>
+
+        {/* Scroll cue */}
+        <motion.div
+          className="absolute flex flex-col items-center gap-2"
+          style={{ bottom: "2.5rem" }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.4, duration: 0.8 }}
+        >
+          <span className="label-eyebrow" style={{ opacity: 0.3, fontSize: "0.6rem" }}>Scroll</span>
+          <motion.div
+            style={{ width: "1px", height: "36px", background: "linear-gradient(to bottom, rgba(232,200,125,0.5), transparent)" }}
+            animate={{ scaleY: [0.4, 1, 0.4] }}
+            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+          />
         </motion.div>
       </section>
 
-      {/* Below-fold content — stacked with consistent spacing */}
-      <div className="flex flex-col gap-y-20">
-
-        {/* Trailer + CTA */}
-        <motion.section
-          className="flex flex-col lg:flex-row gap-8 items-start"
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          transition={{ duration: 0.7 }}
-          viewport={{ once: true, amount: 0.1 }}
-        >
-          {/* Trailer */}
-          <div className="w-full lg:w-1/2 rounded-2xl border border-white/10 bg-black/40 p-5">
-            <p className="text-xs uppercase tracking-[0.3em] text-white/40 mb-3">Trailer</p>
-            <div className="aspect-video w-full rounded-xl bg-gradient-to-br from-white/15 via-white/5 to-transparent" />
-            <div className="mt-4">
-              <button className="rounded-full border border-white/20 px-5 py-2 text-xs uppercase tracking-widest text-white/80 hover:text-white transition-colors">Xem trailer</button>
-            </div>
+      {/* ══ FEATURE SHOWCASE ══ */}
+      <section style={{ padding: "7rem 0" }}>
+        <div className="container">
+          <div className="text-center mb-16">
+            <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}>
+              <Eyebrow>Feature Showcase</Eyebrow>
+            </motion.div>
+            <motion.h2
+              className="font-display font-bold text-white uppercase"
+              style={{ fontSize: "clamp(2rem, 4vw, 3rem)", letterSpacing: "0.04em", marginTop: "0.75rem" }}
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+            >
+              Thế Giới Game
+            </motion.h2>
           </div>
-          {/* CTA */}
-          <div className="w-full lg:w-1/2 space-y-4 pt-2">
-            <p className="text-xs uppercase tracking-[0.3em] text-white/40">TIỆM SỬA XE CHÚ 4</p>
-            <h2 className="text-3xl md:text-4xl font-semibold text-white">Khai mở kỷ nguyên mới cho Vovinam</h2>
-            <p className="text-sm md:text-base text-white/60 leading-relaxed">
-              Tiệm Sửa Xe Chú 4 sở hữu hệ thống kỹ thuật phong phú với hàng trăm đòn thế, quyền pháp, tự vệ và vũ khí. Người học có thể rèn luyện toàn diện, kết hợp kỹ thuật, thể lực và tinh thần võ đạo để hình thành phong cách chiến đấu riêng.
-            </p>
-          </div>
-        </motion.section>
 
-        {/* Story + Taglines */}
-        <motion.section
-          className="flex flex-col gap-10"
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          transition={{ duration: 0.7 }}
-          viewport={{ once: true, amount: 0.1 }}
-        >
-          {/* Story text */}
-          <div
-            className="rounded-3xl border border-white/10 p-8 md:p-12 space-y-5 text-sm md:text-base text-white/70 leading-relaxed"
-            style={{ background: "rgba(255,255,255,0.03)", backdropFilter: "blur(8px)" }}
+          {/* Big card — first image full width */}
+          <motion.div
+            className="relative overflow-hidden group cursor-pointer mb-3"
+            style={{ aspectRatio: "21/8" }}
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.65 }}
+            onClick={() => setLightbox(screenshots[0])}
           >
-            <p>Một khu phố nhỏ. Một tiệm sửa xe cũ kỹ. Một cuộc sống tưởng chừng bình yên.</p>
-            <p>Huỳnh Đức Nam chưa từng nghĩ rằng một vụ xô xát với nhóm côn đồ trong khu phố lại trở thành khởi đầu cho hành trình thay đổi cuộc đời mình. Khi những bí mật bị chôn vùi nhiều năm dần lộ diện, Nam phát hiện cái chết của mẹ anh có thể không phải là một tai nạn như mọi người vẫn tin.</p>
-            <p>Bị cuốn vào vòng xoáy của bạo lực, quyền lực và những âm mưu được che giấu sau vẻ ngoài bình thường của thành phố, Nam buộc phải quay trở lại con đường võ thuật mà anh đã bỏ quên từ lâu. Mỗi trận chiến không chỉ là cuộc đối đầu với những kẻ đứng trước mặt, mà còn là cuộc chiến với quá khứ, sự thật và chính bản thân mình.</p>
-            <p>Liệu công lý có thể chiến thắng khi đối thủ là những kẻ nắm giữ tiền bạc và quyền lực? Liệu Nam có đủ sức đối mặt với sự thật đau đớn về những người anh từng tin tưởng nhất?</p>
-            <p>Hãy bước vào thế giới của Nam, khám phá những bí mật đằng sau vụ tai nạn năm xưa và tự mình quyết định đâu là chính nghĩa.</p>
-            <p className="text-white/85 font-semibold">Sự thật đang chờ được phơi bày.</p>
-            <p className="text-white/55 italic">Phần còn lại của câu chuyện... bạn sẽ phải tự mình trải nghiệm.</p>
-          </div>
-
-          {/* Taglines */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[
-              "Một cú đấm có thể hạ gục kẻ thù. Nhưng chỉ sự thật mới có thể chấm dứt quá khứ.",
-              "Khi công lý im lặng, liệu bạn có dám đứng lên?",
-              "Hành trình của một người thợ sửa xe. Cuộc chiến chống lại cả một thế lực ngầm.",
-            ].map((line, i) => (
-              <div
-                key={i}
-                className="rounded-2xl border border-white/10 p-6 flex items-center"
-                style={{ background: "rgba(255,255,255,0.04)" }}
+            <img
+              src={screenshots[0].src}
+              alt={screenshots[0].caption}
+              className="w-full h-full object-cover"
+              style={{ transition: "transform 0.8s cubic-bezier(0.25,0.8,0.25,1)", objectPosition: "center 30%" }}
+              onMouseEnter={(e) => ((e.target as HTMLImageElement).style.transform = "scale(1.04)")}
+              onMouseLeave={(e) => ((e.target as HTMLImageElement).style.transform = "scale(1)")}
+            />
+            {/* Overlay */}
+            <div
+              className="absolute inset-0"
+              style={{ background: "linear-gradient(to right, rgba(6,8,16,0.85) 0%, rgba(6,8,16,0.3) 40%, rgba(6,8,16,0.1) 100%)" }}
+            />
+            {/* Content */}
+            <div className="absolute inset-0 flex flex-col justify-end p-8 md:p-12">
+              <span className="label-eyebrow mb-3" style={{ opacity: 0.7 }}>{screenshots[0].tag}</span>
+              <h3
+                className="font-display font-bold text-white uppercase mb-3"
+                style={{ fontSize: "clamp(1.4rem, 3vw, 2.2rem)", letterSpacing: "0.04em", lineHeight: 1.1 }}
               >
-                <p className="text-sm text-white/70 italic leading-relaxed">"{line}"</p>
-              </div>
+                {screenshots[0].caption}
+              </h3>
+              <p style={{ color: "rgba(255,255,255,0.55)", fontSize: "0.9rem", lineHeight: 1.75, maxWidth: "480px" }}>
+                {screenshots[0].description}
+              </p>
+            </div>
+            {/* Accent border */}
+            <div className="absolute inset-0 pointer-events-none border border-transparent group-hover:border-[#e8c87d]/25 transition-colors duration-500" />
+          </motion.div>
+
+          {/* 3 smaller cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {screenshots.slice(1).map((img, i) => (
+              <motion.div
+                key={i}
+                className="relative overflow-hidden group cursor-pointer flex flex-col"
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.55, delay: i * 0.1 }}
+                onClick={() => setLightbox(img)}
+              >
+                {/* Image */}
+                <div className="relative overflow-hidden" style={{ aspectRatio: "16/9" }}>
+                  <img
+                    src={img.src}
+                    alt={img.caption}
+                    className="w-full h-full object-cover"
+                    style={{ transition: "transform 0.7s cubic-bezier(0.25,0.8,0.25,1)" }}
+                    onMouseEnter={(e) => ((e.target as HTMLImageElement).style.transform = "scale(1.06)")}
+                    onMouseLeave={(e) => ((e.target as HTMLImageElement).style.transform = "scale(1)")}
+                  />
+                  {/* Tag badge */}
+                  <div
+                    className="absolute top-3 left-3"
+                    style={{
+                      background: "rgba(6,8,16,0.75)",
+                      backdropFilter: "blur(8px)",
+                      border: "1px solid rgba(232,200,125,0.3)",
+                      padding: "3px 10px",
+                    }}
+                  >
+                    <span className="label-eyebrow" style={{ opacity: 0.8, fontSize: "0.55rem" }}>{img.tag}</span>
+                  </div>
+                  <div className="absolute inset-0 pointer-events-none border border-transparent group-hover:border-[#e8c87d]/25 transition-colors duration-400" />
+                </div>
+
+                {/* Text below image */}
+                <div
+                  style={{
+                    background: "rgba(6,8,16,0.7)",
+                    backdropFilter: "blur(12px)",
+                    border: "1px solid rgba(255,255,255,0.07)",
+                    borderTop: "1px solid rgba(232,200,125,0.15)",
+                    padding: "1.2rem 1.4rem",
+                    flex: 1,
+                    transition: "border-color 0.3s",
+                  }}
+                  onMouseEnter={(e) => ((e.currentTarget as HTMLDivElement).style.borderTopColor = "rgba(232,200,125,0.4)")}
+                  onMouseLeave={(e) => ((e.currentTarget as HTMLDivElement).style.borderTopColor = "rgba(232,200,125,0.15)")}
+                >
+                  <h3
+                    className="font-display font-bold text-white uppercase mb-2"
+                    style={{ fontSize: "0.95rem", letterSpacing: "0.06em", lineHeight: 1.2 }}
+                  >
+                    {img.caption}
+                  </h3>
+                  <p style={{ color: "rgba(255,255,255,0.45)", fontSize: "0.78rem", lineHeight: 1.7 }}>
+                    {img.description}
+                  </p>
+                </div>
+              </motion.div>
             ))}
           </div>
-        </motion.section>
+        </div>
+      </section>
 
-      </div>
+      {/* Divider */}
+      <div className="container"><div className="section-divider" /></div>
+
+      {/* Lightbox */}
+      {lightbox && <Lightbox item={lightbox} onClose={() => setLightbox(null)} />}
+
+      {/* ══ STORY ══ */}
+      <section style={{ padding: "7rem 0" }}>
+        <div className="container">
+          <div
+            className="grid gap-16 items-center"
+            style={{ gridTemplateColumns: "1fr 1fr" }}
+          >
+            {/* Image */}
+            <motion.div
+              className="relative overflow-hidden"
+              initial={{ opacity: 0, x: -24 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true, amount: 0.3 }}
+              transition={{ duration: 0.75 }}
+            >
+              <img
+                src="./GameImg/4.png"
+                alt="Nhân vật chính"
+                className="w-full object-cover object-top"
+                style={{ maxHeight: "580px" }}
+              />
+              {/* Right fade */}
+              <div
+                className="absolute inset-y-0 right-0 w-1/3 pointer-events-none"
+                style={{ background: "linear-gradient(to right, transparent, #060810)" }}
+              />
+              {/* Bottom fade */}
+              <div
+                className="absolute bottom-0 left-0 right-0 h-24 pointer-events-none"
+                style={{ background: "linear-gradient(to top, #060810, transparent)" }}
+              />
+              {/* Accent border */}
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{ border: "1px solid rgba(232,200,125,0.15)" }}
+              />
+            </motion.div>
+
+            {/* Text */}
+            <motion.div
+              className="flex flex-col gap-6"
+              initial={{ opacity: 0, x: 24 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true, amount: 0.3 }}
+              transition={{ duration: 0.75, delay: 0.1 }}
+            >
+              <Eyebrow>Cốt Truyện</Eyebrow>
+              <h2
+                className="font-display font-bold text-white uppercase"
+                style={{ fontSize: "clamp(2rem, 3.5vw, 2.8rem)", lineHeight: 1.1, letterSpacing: "0.03em" }}
+              >
+                Hành Trình<br />Tìm Sự Thật
+              </h2>
+
+              {/* Accent line */}
+              <div style={{ width: "48px", height: "2px", background: "#e8c87d", opacity: 0.7 }} />
+
+              <p style={{ color: "rgba(255,255,255,0.6)", lineHeight: 1.8, fontSize: "0.95rem" }}>
+                Một tiệm sửa xe nhỏ. Một vụ xô xát bất ngờ. Một bí mật bị chôn vùi nhiều năm.
+              </p>
+              <p style={{ color: "rgba(255,255,255,0.5)", lineHeight: 1.8, fontSize: "0.95rem" }}>
+                Huỳnh Đức Nam buộc phải quay trở lại con đường võ thuật để đối mặt với sự thật đằng sau cái chết của mẹ mình — và những kẻ nắm giữ quyền lực trong bóng tối.
+              </p>
+
+              {/* Stats */}
+              <div
+                className="grid grid-cols-3 mt-4 pt-6"
+                style={{ borderTop: "1px solid rgba(255,255,255,0.1)", gap: "1.5rem" }}
+              >
+                {[
+                  { num: "3", label: "Giai đoạn" },
+                  { num: "6", label: "Thành viên" },
+                  { num: "2026", label: "Ra mắt" },
+                ].map((s) => (
+                  <div key={s.label} className="text-center">
+                    <p
+                      className="font-display font-bold text-white"
+                      style={{ fontSize: "2rem", lineHeight: 1, color: "#e8c87d" }}
+                    >
+                      {s.num}
+                    </p>
+                    <p className="label-eyebrow mt-2" style={{ opacity: 0.45, fontSize: "0.6rem" }}>
+                      {s.label}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* ══ TAGLINES ══ */}
+      <section style={{ padding: "0 0 7rem 0" }}>
+        <div className="container">
+          <div className="section-divider mb-0" />
+          <div className="grid" style={{ gridTemplateColumns: "repeat(3, 1fr)", gap: "1px", background: "rgba(255,255,255,0.06)" }}>
+            {[
+              { num: "01", text: "Một cú đấm hạ gục kẻ thù. Chỉ sự thật chấm dứt quá khứ." },
+              { num: "02", text: "Khi công lý im lặng, liệu bạn có dám đứng lên?" },
+              { num: "03", text: "Hành trình người thợ sửa xe. Cuộc chiến với thế lực ngầm." },
+            ].map((t, i) => (
+              <motion.div
+                key={t.num}
+                className="flex flex-col gap-5"
+                style={{
+                  background: "rgba(6,8,16,0.8)",
+                  padding: "2.5rem 2rem",
+                  backdropFilter: "blur(8px)",
+                }}
+                initial={{ opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.08 }}
+              >
+                <span className="label-eyebrow" style={{ opacity: 0.3 }}>{t.num}</span>
+                <p style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.9rem", fontStyle: "italic", lineHeight: 1.75 }}>
+                  "{t.text}"
+                </p>
+              </motion.div>
+            ))}
+          </div>
+          <div className="section-divider mt-0" />
+        </div>
+      </section>
+
     </PageFade>
   );
 }
 
-/* ════════════════════════════════════════
+/* ════════════════════════════════════════════════
    ABOUT PAGE
-════════════════════════════════════════ */
+════════════════════════════════════════════════ */
 function AboutPage() {
   const initials = (name: string) =>
     name.split(" ").slice(-2).map((w) => w[0]).join("").toUpperCase();
 
   return (
     <PageFade id="about">
-      <PageHero eyebrow="About Us" title="Dragon Tail Team" subtitle="Six students. One dream. One journey." />
 
-      <div className="flex flex-col gap-y-16 pb-40">
+      {/* Hero Banner */}
+      <section className="relative overflow-hidden flex items-end" style={{ height: "52vh", minHeight: "360px" }}>
+        <img
+          src="./GameImg/2.jpg"
+          alt="About banner"
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{ filter: "brightness(0.35) saturate(0.7)" }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{ background: "linear-gradient(to top, #060810 0%, rgba(6,8,16,0.4) 50%, transparent 100%)" }}
+        />
+        <div className="relative container pb-14">
+          <Eyebrow>About Us</Eyebrow>
+          <h1
+            className="font-display font-bold text-white uppercase"
+            style={{ fontSize: "clamp(2.5rem, 6vw, 5rem)", lineHeight: 1.05, letterSpacing: "0.04em" }}
+          >
+            Dragon Tail Team
+          </h1>
+        </div>
+      </section>
 
-        {/* The Team */}
+      <div className="container" style={{ paddingTop: "5rem", paddingBottom: "8rem", display: "flex", flexDirection: "column", gap: "5rem" }}>
+
+        {/* Lead */}
+        <motion.p
+          style={{ color: "rgba(255,255,255,0.55)", fontSize: "1.15rem", lineHeight: 1.75, maxWidth: "640px" }}
+          initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
+        >
+          Sáu sinh viên. Một ước mơ. Một hành trình từ giảng đường FPT đến sản phẩm game đầu tay.
+        </motion.p>
+
+        {/* Team */}
         <section>
-          <p className="text-sm uppercase tracking-[0.4em] text-white/35 text-center mb-8">The Team</p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          <Eyebrow>The Team</Eyebrow>
+          <div
+            className="grid"
+            style={{ gridTemplateColumns: "repeat(3, 1fr)", gap: "1px", background: "rgba(255,255,255,0.07)" }}
+          >
             {teamMembers.map((member, i) => (
-              <div
-                key={member}
-                className="liquid-glass rounded-2xl border border-white/10 p-5 flex items-center gap-4"
+              <motion.div
+                key={member.name}
+                className="group flex items-center gap-4"
+                style={{
+                  background: "rgba(6,8,16,0.85)",
+                  padding: "1.4rem 1.5rem",
+                  transition: "background 0.25s",
+                }}
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.05 }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(232,200,125,0.05)")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(6,8,16,0.85)")}
               >
                 <div
-                  className="flex-shrink-0 w-11 h-11 rounded-full border border-white/15 flex items-center justify-center text-xs font-bold text-white/70 tracking-wide"
-                  style={{ background: "linear-gradient(135deg, rgba(59,130,246,0.25), rgba(255,255,255,0.06))" }}
+                  className="font-display font-bold text-white/60 shrink-0 flex items-center justify-center"
+                  style={{
+                    width: 44, height: 44, fontSize: "0.8rem", letterSpacing: "0.05em",
+                    background: "rgba(232,200,125,0.08)",
+                    border: "1px solid rgba(232,200,125,0.2)",
+                  }}
                 >
-                  {initials(member)}
+                  {initials(member.name)}
                 </div>
                 <div>
-                  <p className="text-[9px] uppercase tracking-[0.25em] text-white/35 mb-1">Member {i + 1}</p>
-                  <p className="text-sm text-white/85 font-medium leading-snug">{member}</p>
+                  <p className="text-white/85 font-medium" style={{ fontSize: "0.9rem" }}>{member.name}</p>
+                  <p className="label-eyebrow mt-1" style={{ opacity: 0.4, fontSize: "0.58rem" }}>{member.role}</p>
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
         </section>
 
-        {/* Our Story */}
-        <section>
-          <p className="text-sm uppercase tracking-[0.4em] text-white/35 text-center mb-8">Our Story</p>
-          <div
-            className="rounded-3xl border border-white/10 p-6 md:p-10 space-y-5 text-sm md:text-base text-white/70 leading-relaxed"
-            style={{ background: "rgba(255,255,255,0.03)", backdropFilter: "blur(8px)" }}
-          >
-            <p>Dragon Tail là một nhóm gồm sáu sinh viên đến từ Trường Đại học FPT. Nhóm được thành lập vào năm cuối đại học, trong giai đoạn mà mỗi thành viên đều đứng trước những lựa chọn quan trọng của cuộc đời: tìm kiếm công việc ổn định hay theo đuổi đam mê sáng tạo đầy rủi ro.</p>
-            <p>Mọi chuyện bắt đầu từ một môn Startup của trường. Sáu con người với sáu tính cách khác nhau được ghép chung vào một đội. Ban đầu, không ai nghĩ họ có thể làm việc cùng nhau. Những cuộc tranh cãi về ý tưởng, những đêm thức trắng sửa lỗi và áp lực từ thời hạn dự án khiến cả nhóm nhiều lần đứng bên bờ vực tan rã.</p>
-            <p>Người muốn tập trung vào đồ họa, người theo đuổi gameplay. Có người muốn tạo ra một trò chơi giải trí đơn giản, trong khi người khác lại muốn kể một câu chuyện mang đậm bản sắc Việt Nam. Sự khác biệt ấy từng khiến cả nhóm đối đầu gay gắt.</p>
-            <p>Thế nhưng chính trong những ngày tháng khó khăn nhất, họ nhận ra mình có chung một mục tiêu: tạo ra một sản phẩm mà họ có thể tự hào gọi là "đứa con tinh thần" đầu tiên của tuổi trẻ.</p>
-            <p>Tên gọi "Dragon Tail" được lựa chọn như một biểu tượng. Nếu rồng là hình ảnh đại diện cho khát vọng vươn cao, thì chiếc đuôi rồng là phần cuối cùng nhưng cũng là phần không bao giờ tách rời khỏi cơ thể. Nó tượng trưng cho sáu thành viên với những xuất phát điểm khác nhau nhưng luôn gắn kết trên cùng một hành trình.</p>
-            <p className="text-white/85 font-semibold">Nhưng Dragon Tail vẫn tiếp tục tiến lên.</p>
-            <p>Đối với họ, dự án không chỉ là một bài tập tốt nghiệp hay một sản phẩm game. Nó là minh chứng cho tình bạn, sự kiên trì và niềm tin rằng những người trẻ Việt Nam hoàn toàn có thể tạo ra những câu chuyện mang dấu ấn riêng của mình.</p>
-            <p>Ngày hôm nay, Dragon Tail không chỉ là tên của một nhóm phát triển game. Đó là biểu tượng của sáu sinh viên đã cùng nhau vượt qua thất bại, áp lực và giới hạn bản thân để biến một ý tưởng nhỏ thành hiện thực.</p>
+        {/* Story */}
+        <section
+          className="grid items-start"
+          style={{ gridTemplateColumns: "1fr 1fr", gap: "4rem" }}
+        >
+          <div className="flex flex-col gap-5">
+            <Eyebrow>Our Story</Eyebrow>
+            <h2
+              className="font-display font-bold text-white uppercase"
+              style={{ fontSize: "clamp(1.8rem, 3vw, 2.5rem)", lineHeight: 1.1, letterSpacing: "0.03em" }}
+            >
+              Từ Lớp Học<br />Đến Sản Phẩm Thật
+            </h2>
+            <div style={{ width: 40, height: 2, background: "#e8c87d", opacity: 0.6 }} />
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem", color: "rgba(255,255,255,0.55)", fontSize: "0.92rem", lineHeight: 1.8 }}>
+              <p>Dragon Tail ra đời trong một môn Startup tại FPT. Sáu sinh viên, sáu tính cách, một đội — không ai nghĩ họ sẽ làm được điều gì lớn.</p>
+              <p>Những đêm thức trắng, tranh cãi về ý tưởng, những lần mất dữ liệu. Nhưng chính trong áp lực đó, cả nhóm tìm thấy mục tiêu chung: tạo ra một game mang đậm bản sắc Việt Nam.</p>
+              <p style={{ color: "rgba(255,255,255,0.75)", fontWeight: 500 }}>
+                Dragon Tail không chỉ là tên nhóm. Đó là biểu tượng của sự kiên trì — đuôi rồng, phần không bao giờ tách rời.
+              </p>
+            </div>
           </div>
+
+          <motion.div
+            className="relative overflow-hidden"
+            initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
+            transition={{ duration: 0.7 }}
+          >
+            <img
+              src="./GameImg/3.jpg"
+              alt="Our story"
+              className="w-full object-cover"
+            />
+            <div className="absolute inset-0 pointer-events-none" style={{ border: "1px solid rgba(232,200,125,0.15)" }} />
+          </motion.div>
         </section>
 
         {/* Quote */}
-        <blockquote className="rounded-2xl border border-white/10 bg-white/5 px-8 py-7 text-base md:text-lg text-white/65 italic text-center max-w-2xl mx-auto">
+        <blockquote
+          style={{
+            borderLeft: "2px solid rgba(232,200,125,0.4)",
+            paddingLeft: "2rem",
+            color: "rgba(255,255,255,0.5)",
+            fontStyle: "italic",
+            fontSize: "1.15rem",
+            lineHeight: 1.75,
+            maxWidth: "700px",
+          }}
+        >
           "Sometimes the most meaningful destination is not where we arrive, but the people who walk beside us along the way."
         </blockquote>
 
@@ -396,18 +862,17 @@ function AboutPage() {
   );
 }
 
-/* ════════════════════════════════════════
+/* ════════════════════════════════════════════════
    CONTACT PAGE
-════════════════════════════════════════ */
+════════════════════════════════════════════════ */
 function ContactPage() {
   const socials = [
     {
       platform: "X (Twitter)", handle: "@dragontails_stu",
       href: "https://x.com/dragontails_stu/status/2061987750522531885",
-      description: "Follow us on X for the latest updates, dev logs, and game announcements.",
-      accent: "from-white/8 to-white/4", glow: "rgba(255,255,255,0.07)",
+      description: "Latest updates, dev logs, and game announcements.",
       icon: (
-        <svg viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8">
+        <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 22, height: 22 }}>
           <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622 5.91-5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
         </svg>
       ),
@@ -415,10 +880,9 @@ function ContactPage() {
     {
       platform: "Facebook", handle: "dragontails.stu",
       href: "https://www.facebook.com/dragontails.stu",
-      description: "Join our Facebook community for behind-the-scenes content, team updates, and fan discussions.",
-      accent: "from-blue-500/12 to-blue-600/4", glow: "rgba(59,130,246,0.12)",
+      description: "Behind-the-scenes content, team updates, and fan discussions.",
       icon: (
-        <svg viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8">
+        <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 22, height: 22 }}>
           <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
         </svg>
       ),
@@ -427,102 +891,87 @@ function ContactPage() {
 
   return (
     <PageFade id="contact">
-      <PageHero eyebrow="Get in Touch" title="Contact Us" subtitle="Follow Dragon Tail Team across our social channels." />
 
-      <motion.section
-        className="mb-20 grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto"
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.12 }}
-      >
-        {socials.map((s, i) => (
-          <motion.a
-            key={s.platform}
-            href={s.href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`group relative flex flex-col gap-5 rounded-3xl border border-white/12 p-7 bg-gradient-to-br ${s.accent} overflow-hidden`}
-            style={{ backdropFilter: "blur(20px)", boxShadow: `0 0 40px ${s.glow}, inset 0 1px 0 rgba(255,255,255,0.08)` }}
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.18 + i * 0.1 }}
-            whileHover={{ scale: 1.025, y: -4 }}
-            whileTap={{ scale: 0.98 }}
+      {/* Banner */}
+      <section className="relative overflow-hidden flex items-end" style={{ height: "44vh", minHeight: "300px" }}>
+        <img
+          src="./GameImg/1.jpg"
+          alt="Contact banner"
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{ filter: "brightness(0.3) saturate(0.6)" }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{ background: "linear-gradient(to top, #060810 0%, rgba(6,8,16,0.35) 50%, transparent 100%)" }}
+        />
+        <div className="relative container pb-12">
+          <Eyebrow>Get in Touch</Eyebrow>
+          <h1
+            className="font-display font-bold text-white uppercase"
+            style={{ fontSize: "clamp(2.5rem, 6vw, 5rem)", lineHeight: 1.05, letterSpacing: "0.04em" }}
           >
-            <div className="pointer-events-none absolute inset-0 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ boxShadow: `inset 0 0 60px ${s.glow}` }} />
-            <div className="flex items-start justify-between gap-4">
-              <div className="text-white/70 group-hover:text-white transition-colors duration-300">{s.icon}</div>
-              <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4 text-white/30 group-hover:text-white/70 transition-colors duration-300 mt-1">
-                <path d="M3 13L13 3M13 3H6M13 3V10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.3em] text-white/35 mb-1">{s.platform}</p>
-              <p className="text-xl font-semibold text-white mb-3">{s.handle}</p>
-              <p className="text-sm text-white/55 leading-relaxed group-hover:text-white/70 transition-colors duration-300">{s.description}</p>
-            </div>
-            <div className="flex items-center gap-2 text-white/40 group-hover:text-white/70 transition-colors duration-300">
-              <span className="text-xs uppercase tracking-widest">Visit</span>
-              <svg viewBox="0 0 16 16" fill="none" className="w-3 h-3">
-                <path d="M1 8h14M9 2l6 6-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </div>
-          </motion.a>
-        ))}
-      </motion.section>
-      <div className="h-24" />
+            Follow Us
+          </h1>
+        </div>
+      </section>
+
+      <div className="container" style={{ paddingTop: "5rem", paddingBottom: "8rem" }}>
+        <p style={{ color: "rgba(255,255,255,0.45)", marginBottom: "3.5rem", maxWidth: "480px", lineHeight: 1.75 }}>
+          Follow Dragon Tail Team để cập nhật tin tức mới nhất về game.
+        </p>
+
+        <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(280px, 400px))", gap: "1px", background: "rgba(255,255,255,0.07)", maxWidth: "820px" }}>
+          {socials.map((s) => (
+            <motion.a
+              key={s.platform}
+              href={s.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex flex-col gap-5"
+              style={{
+                background: "rgba(6,8,16,0.85)",
+                padding: "2.5rem",
+                transition: "background 0.25s",
+                textDecoration: "none",
+              }}
+              whileHover={{ y: -2 }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(232,200,125,0.04)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(6,8,16,0.85)")}
+            >
+              <div className="flex items-center justify-between">
+                <div style={{ color: "rgba(255,255,255,0.5)", transition: "color 0.2s" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "#e8c87d")}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.5)")}
+                >
+                  {s.icon}
+                </div>
+                <svg viewBox="0 0 16 16" fill="none" style={{ width: 14, height: 14, color: "rgba(255,255,255,0.2)" }}>
+                  <path d="M3 13L13 3M13 3H6M13 3V10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+              <div>
+                <p className="label-eyebrow mb-2" style={{ opacity: 0.35, fontSize: "0.58rem" }}>{s.platform}</p>
+                <p className="font-display font-semibold text-white" style={{ fontSize: "1.15rem", marginBottom: "0.5rem" }}>{s.handle}</p>
+                <p style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.82rem", lineHeight: 1.7 }}>{s.description}</p>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "rgba(232,200,125,0.5)", fontSize: "0.68rem" }}>
+                <span className="font-display font-medium uppercase tracking-widest">Visit</span>
+                <span>→</span>
+              </div>
+            </motion.a>
+          ))}
+        </div>
+      </div>
     </PageFade>
   );
 }
 
-/* ════════════════════════════════════════
-   VIDEO BACKGROUND
-════════════════════════════════════════ */
-function VideoBackground() {
-  return (
-    <>
-      {/* Video */}
-      <video
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-          zIndex: -2,
-          filter: "brightness(0.4)",
-          pointerEvents: "none",
-        }}
-        src="./Movie_001.mp4"
-        autoPlay
-        loop
-        muted
-        playsInline
-      />
-      {/* Dark overlay */}
-      <div
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          width: "100%",
-          height: "100%",
-          zIndex: -1,
-          background: "linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.35) 50%, rgba(0,0,0,0.6) 100%)",
-          pointerEvents: "none",
-        }}
-      />
-    </>
-  );
-}
-
-/* ════════════════════════════════════════
+/* ════════════════════════════════════════════════
    ROOT APP
-════════════════════════════════════════ */
+════════════════════════════════════════════════ */
 export default function App() {
   const [activePage, setActivePage] = useState<Page>("HOME");
-  const [navBottom, setNavBottom] = useState(100);
+  const [navHeight, setNavHeight] = useState(68);
   const navRef = useRef<HTMLElement>(null);
 
   const navigate = (page: Page) => {
@@ -533,7 +982,7 @@ export default function App() {
   useLayoutEffect(() => {
     const el = navRef.current;
     if (!el) return;
-    const update = () => setNavBottom(el.getBoundingClientRect().bottom + 20);
+    const update = () => setNavHeight(el.getBoundingClientRect().height);
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
@@ -541,16 +990,10 @@ export default function App() {
   }, []);
 
   return (
-    <div className="relative w-full overflow-x-hidden font-sans selection:bg-white/20 selection:text-white">
-
-      {/* ── Video Background ── */}
+    <div style={{ position: "relative", width: "100%", overflowX: "hidden" }} className="selection:bg-white/10 selection:text-white">
       <VideoBackground />
-
-      {/* ── Persistent Navbar — always on top, never moves ── */}
       <Navbar activePage={activePage} onNavigate={navigate} navRef={navRef} />
-
-      {/* ── Page Container — padded below navbar ── */}
-      <PageContainer topOffset={navBottom}>
+      <PageContainer topOffset={navHeight}>
         {activePage === "HOME"    && <HomePage key="home" onNavigate={navigate} />}
         {activePage === "ABOUT"   && <AboutPage key="about" />}
         {activePage === "CONTACT" && <ContactPage key="contact" />}
