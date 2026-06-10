@@ -476,6 +476,48 @@ function ContactPage() {
 }
 
 /* ════════════════════════════════════════
+   VIDEO BACKGROUND
+════════════════════════════════════════ */
+function VideoBackground() {
+  return (
+    <>
+      {/* Video */}
+      <video
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          zIndex: -2,
+          filter: "brightness(0.4)",
+          pointerEvents: "none",
+        }}
+        src="./Movie_002.mp4"
+        autoPlay
+        loop
+        muted
+        playsInline
+      />
+      {/* Dark overlay */}
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          zIndex: -1,
+          background: "linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.35) 50%, rgba(0,0,0,0.6) 100%)",
+          pointerEvents: "none",
+        }}
+      />
+    </>
+  );
+}
+
+/* ════════════════════════════════════════
    ROOT APP
 ════════════════════════════════════════ */
 export default function App() {
@@ -501,30 +543,8 @@ export default function App() {
   return (
     <div className="relative w-full overflow-x-hidden font-sans selection:bg-white/20 selection:text-white">
 
-      {/* ── Persistent video background ── */}
-      <div className="fixed inset-0 z-0">
-        <motion.video
-          className="absolute inset-0 w-full h-full object-cover"
-          src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260429_114316_1c7889ad-2885-410e-b493-98119fee0ddb.mp4"
-          autoPlay loop muted playsInline
-          initial={{ opacity: 0.55 }} animate={{ opacity: 0.75 }}
-          transition={{ duration: 18, ease: "linear", repeat: Infinity, repeatType: "mirror" }}
-        />
-        <motion.video
-          className="absolute inset-0 w-full h-full object-cover"
-          src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260429_114316_1c7889ad-2885-410e-b493-98119fee0ddb.mp4"
-          autoPlay loop muted playsInline
-          initial={{ opacity: 0.75 }} animate={{ opacity: 0.55 }}
-          transition={{ duration: 18, ease: "linear", repeat: Infinity, repeatType: "mirror" }}
-        />
-      </div>
-
-      {/* ── Ambient overlays ── */}
-      <div
-        className="fixed inset-0 z-[1]"
-        style={{ backgroundImage: "radial-gradient(circle at top, rgba(15,23,42,0.65), transparent 55%), radial-gradient(circle at bottom, rgba(12,74,110,0.55), transparent 60%)" }}
-      />
-      <div className="fixed inset-0 z-[2] bg-gradient-to-b from-black/40 via-black/30 to-black/70" />
+      {/* ── Video Background ── */}
+      <VideoBackground />
 
       {/* ── Persistent Navbar — always on top, never moves ── */}
       <Navbar activePage={activePage} onNavigate={navigate} navRef={navRef} />
