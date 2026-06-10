@@ -88,7 +88,6 @@ function Navbar({ activePage, onNavigate, navRef }: NavbarProps) {
           >
             <img src="./Animation.png" alt="Đạo Võ emblem" className="h-8 w-8" />
             <div className="leading-tight text-left">
-              <p className="text-[10px] uppercase tracking-[0.35em] text-white/50">Tiệm Sửa Xe Chú 4</p>
               <p className="text-sm font-semibold text-white">Tiệm sửa xe Chú 4</p>
             </div>
           </button>
@@ -280,7 +279,7 @@ function HomePage({ onNavigate }: { onNavigate: (p: Page) => void }) {
           {/* CTA */}
           <div className="w-full lg:w-1/2 space-y-4 pt-2">
             <p className="text-xs uppercase tracking-[0.3em] text-white/40">TIỆM SỬA XE CHÚ 4</p>
-            <h2 className="text-3xl md:text-4xl font-semibold text-white">Khai mở kỷ nguyên mới cho Tiệm Sửa Xe Chú 4</h2>
+            <h2 className="text-3xl md:text-4xl font-semibold text-white">Khai mở kỷ nguyên mới cho Vovinam</h2>
             <p className="text-sm md:text-base text-white/60 leading-relaxed">
               Tiệm Sửa Xe Chú 4 sở hữu hệ thống kỹ thuật phong phú với hàng trăm đòn thế, quyền pháp, tự vệ và vũ khí. Người học có thể rèn luyện toàn diện, kết hợp kỹ thuật, thể lực và tinh thần võ đạo để hình thành phong cách chiến đấu riêng.
             </p>
