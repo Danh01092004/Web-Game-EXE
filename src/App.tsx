@@ -29,9 +29,9 @@ const teamMembers = [
 const screenshots = [
   {
     src: "./GameImg/1.jpg",
-    caption: "Khu Phố Sài Gòn",
+    caption: "Khu Phố Đường tàu",
     tag: "Thế Giới",
-    description: "Con hẻm quen thuộc, những mái nhà cũ kỹ và tiếng rao hàng — bối cảnh Sài Gòn được tái hiện chân thực trong từng góc phố.",
+    description: "Con hẻm quen thuộc, những mái nhà cũ kỹ và tiếng rao hàng — bối cảnh ngoài Bắc được tái hiện chân thực trong từng góc phố.",
   },
   {
     src: "./GameImg/2.jpg",
@@ -49,13 +49,48 @@ const screenshots = [
     src: "./GameImg/4.png",
     caption: "Đối Thoại & Cốt Truyện",
     tag: "Gameplay",
-    description: "Lựa chọn từng câu thoại sẽ thay đổi mối quan hệ và hướng đi của câu chuyện. Sự thật chỉ lộ diện với người biết cách hỏi đúng câu.",
+    description: "Từng câu thoại sẽ thấy được mối quan hệ và hướng đi của câu chuyện. Sự thật chỉ lộ diện với người biết cách hỏi đúng câu.",
   },
 ];
 
 /* ════════════════════════════════════════════════
-   VIDEO BACKGROUND
+   ITCH STATS
 ════════════════════════════════════════════════ */
+const ITCH_API_KEY = import.meta.env.VITE_ITCH_API_KEY as string;
+
+interface GameStats {
+  views_count: number;
+  downloads_count: number;
+  ratings_count: number;
+}
+
+function useItchStats() {
+  const [stats, setStats] = useState<GameStats>({ views_count: 14, downloads_count: 0, ratings_count: 0 });
+
+  useEffect(() => {
+    const apiUrl = `https://itch.io/api/1/${ITCH_API_KEY}/my-games`;
+    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(apiUrl)}`;
+
+    fetch(proxyUrl)
+      .then((r) => r.json())
+      .then((data: { games?: Array<Record<string, unknown>> }) => {
+        const game = data.games?.find((g) =>
+          (g.url as string)?.includes("tiem-sua-xe-chu-tu")
+        );
+        if (game) {
+          setStats({
+            views_count: (game.views_count as number) ?? 14,
+            downloads_count: (game.downloads_count as number) ?? 0,
+            ratings_count: (game.ratings_count as number) ?? 0,
+          });
+        }
+      })
+      .catch(() => {/* keep hardcoded fallback */});
+  }, []);
+
+  return stats;
+}
+
 function VideoBackground() {
   return (
     <>
@@ -67,7 +102,7 @@ function VideoBackground() {
           filter: "brightness(0.32) saturate(0.8)",
           pointerEvents: "none",
         }}
-        src="./Movie_001.mp4"
+        src="./Trailer_ne.mp4"
         autoPlay loop muted playsInline
       />
       {/* Multi-stop overlay for cinematic depth */}
@@ -228,7 +263,7 @@ function PageContainer({
   topOffset: number;
 }) {
   return (
-    <main className="relative z-10 w-full" style={{ paddingTop: topOffset }}>
+    <main className="w-full" style={{ paddingTop: topOffset }}>
       <AnimatePresence mode="wait">{children}</AnimatePresence>
     </main>
   );
@@ -364,8 +399,393 @@ function Lightbox({ item, onClose }: { item: LightboxItem; onClose: () => void }
     </AnimatePresence>
   );
 }
+/* ════════════════════════════════════════════════
+   TRAILER MODAL
+════════════════════════════════════════════════ */
+function TrailerModal({ onClose }: { onClose: () => void }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [muted, setMuted] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [showControls, setShowControls] = useState(true);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === " ") { e.preventDefault(); togglePlay(); }
+      if (e.key === "m") toggleMute();
+    };
+    window.addEventListener("keydown", handler);
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", handler);
+      document.body.style.overflow = "";
+    };
+  }, [onClose]);
+
+  const togglePlay = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (v.paused) { v.play(); setPlaying(true); }
+    else { v.pause(); setPlaying(false); }
+  };
+
+  const toggleMute = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = !v.muted;
+    setMuted(v.muted);
+  };
+
+  const handleTimeUpdate = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    setCurrentTime(v.currentTime);
+    setProgress(v.duration ? (v.currentTime / v.duration) * 100 : 0);
+  };
+
+  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+    const v = videoRef.current;
+    if (!v) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const ratio = (e.clientX - rect.left) / rect.width;
+    v.currentTime = ratio * v.duration;
+  };
+
+  const handleMouseMove = () => {
+    setShowControls(true);
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    if (playing) {
+      hideTimer.current = setTimeout(() => setShowControls(false), 2500);
+    }
+  };
+
+  const fmt = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m}:${sec.toString().padStart(2, "0")}`;
+  };
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        className="fixed inset-0 z-[200] flex items-center justify-center"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.25 }}
+        onClick={onClose}
+      >
+        {/* Backdrop */}
+        <div className="absolute inset-0" style={{ background: "rgba(3,4,10,0.96)", backdropFilter: "blur(20px)" }} />
+
+        {/* Container */}
+        <motion.div
+          className="relative z-10 w-full"
+          style={{ maxWidth: "1000px", padding: "0 1.5rem" }}
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <span className="label-eyebrow" style={{ opacity: 0.5 }}>Official Trailer</span>
+              <h2 className="font-display font-bold text-white uppercase mt-1"
+                style={{ fontSize: "1.1rem", letterSpacing: "0.08em" }}>
+                Tiệm Sửa Xe Chú 4
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex items-center justify-center transition-colors duration-200"
+              style={{ width: 36, height: 36, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.5)" }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(232,200,125,0.15)"; e.currentTarget.style.color = "#e8c87d"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "rgba(255,255,255,0.5)"; }}
+            >
+              <svg viewBox="0 0 14 14" fill="none" style={{ width: 13, height: 13 }}>
+                <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Video wrapper */}
+          <div
+            className="relative overflow-hidden"
+            style={{ aspectRatio: "16/9", background: "#000", border: "1px solid rgba(232,200,125,0.15)", cursor: playing ? "none" : "pointer" }}
+            onMouseMove={handleMouseMove}
+            onMouseLeave={() => { if (playing) setShowControls(false); }}
+          >
+            <video
+              ref={videoRef}
+              src="./Trailer_ne.mp4"
+              className="w-full h-full object-cover"
+              onTimeUpdate={handleTimeUpdate}
+              onLoadedMetadata={() => setDuration(videoRef.current?.duration ?? 0)}
+              onEnded={() => setPlaying(false)}
+              onClick={togglePlay}
+            />
+
+            {/* Big play button overlay — show when paused */}
+            {!playing && (
+              <motion.div
+                className="absolute inset-0 flex items-center justify-center cursor-pointer"
+                style={{ background: "rgba(0,0,0,0.35)" }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                onClick={togglePlay}
+              >
+                <div
+                  className="flex items-center justify-center"
+                  style={{
+                    width: 72, height: 72,
+                    background: "rgba(232,200,125,0.15)",
+                    border: "2px solid rgba(232,200,125,0.5)",
+                    backdropFilter: "blur(8px)",
+                    transition: "all 0.2s",
+                  }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "rgba(232,200,125,0.3)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "rgba(232,200,125,0.15)"; }}
+                >
+                  <svg viewBox="0 0 24 24" fill="#e8c87d" style={{ width: 28, height: 28, marginLeft: 4 }}>
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Controls bar — show on hover or paused */}
+            <motion.div
+              className="absolute bottom-0 left-0 right-0"
+              style={{ background: "linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%)", padding: "1.5rem 1.25rem 1rem" }}
+              animate={{ opacity: showControls || !playing ? 1 : 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              {/* Progress bar */}
+              <div
+                className="w-full cursor-pointer mb-3"
+                style={{ height: 3, background: "rgba(255,255,255,0.15)", position: "relative" }}
+                onClick={handleSeek}
+              >
+                <div style={{ width: `${progress}%`, height: "100%", background: "#e8c87d", transition: "width 0.1s" }} />
+                {/* Thumb */}
+                <div style={{
+                  position: "absolute", top: "50%", left: `${progress}%`,
+                  transform: "translate(-50%, -50%)",
+                  width: 10, height: 10, borderRadius: "50%",
+                  background: "#e8c87d",
+                  boxShadow: "0 0 6px rgba(232,200,125,0.6)",
+                }} />
+              </div>
+
+              {/* Controls row */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  {/* Play/Pause */}
+                  <button
+                    type="button"
+                    onClick={togglePlay}
+                    style={{ color: "rgba(255,255,255,0.85)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                  >
+                    {playing ? (
+                      <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 20, height: 20 }}>
+                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                      </svg>
+                    ) : (
+                      <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 20, height: 20 }}>
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    )}
+                  </button>
+
+                  {/* Mute */}
+                  <button
+                    type="button"
+                    onClick={toggleMute}
+                    style={{ color: muted ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.85)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                  >
+                    {muted ? (
+                      <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 18, height: 18 }}>
+                        <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" />
+                      </svg>
+                    ) : (
+                      <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 18, height: 18 }}>
+                        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
+                      </svg>
+                    )}
+                  </button>
+
+                  {/* Time */}
+                  <span className="font-display" style={{ fontSize: "0.68rem", color: "rgba(255,255,255,0.5)", letterSpacing: "0.05em" }}>
+                    {fmt(currentTime)} / {fmt(duration)}
+                  </span>
+                </div>
+
+                {/* Keyboard hints */}
+                <div className="flex items-center gap-3">
+                  {[["Space", "Play/Pause"], ["M", "Mute"], ["Esc", "Close"]].map(([key, hint]) => (
+                    <span key={key} style={{ fontSize: "0.58rem", color: "rgba(255,255,255,0.25)", letterSpacing: "0.05em" }}>
+                      <span style={{ color: "rgba(255,255,255,0.45)", fontFamily: "monospace" }}>{key}</span> {hint}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+/* ════════════════════════════════════════════════
+   INLINE TRAILER PLAYER
+════════════════════════════════════════════════ */
+function InlineTrailerPlayer() {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [muted, setMuted] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+
+  const togglePlay = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (v.paused) { v.play(); setPlaying(true); }
+    else { v.pause(); setPlaying(false); }
+  };
+
+  const toggleMute = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = !v.muted;
+    setMuted(v.muted);
+  };
+
+  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+    const v = videoRef.current;
+    if (!v || !v.duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    v.currentTime = ((e.clientX - rect.left) / rect.width) * v.duration;
+  };
+
+  const fmt = (s: number) => `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, "0")}`;
+
+  return (
+    <div
+      className="relative overflow-hidden group"
+      style={{ background: "#000", border: "1px solid rgba(232,200,125,0.2)" }}
+    >
+      <video
+        ref={videoRef}
+        src="./Trailer_ne.mp4"
+        className="w-full block"
+        style={{ aspectRatio: "16/9", objectFit: "cover", cursor: "pointer" }}
+        onTimeUpdate={() => {
+          const v = videoRef.current;
+          if (!v) return;
+          setCurrentTime(v.currentTime);
+          setProgress(v.duration ? (v.currentTime / v.duration) * 100 : 0);
+        }}
+        onLoadedMetadata={() => setDuration(videoRef.current?.duration ?? 0)}
+        onEnded={() => setPlaying(false)}
+        onClick={togglePlay}
+      />
+
+      {/* Big play overlay */}
+      {!playing && (
+        <div
+          className="absolute inset-0 flex items-center justify-center cursor-pointer"
+          style={{ background: "rgba(0,0,0,0.45)" }}
+          onClick={togglePlay}
+        >
+          <div
+            style={{
+              width: 64, height: 64,
+              background: "rgba(232,200,125,0.15)",
+              border: "2px solid rgba(232,200,125,0.6)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              transition: "all 0.2s",
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "rgba(232,200,125,0.3)"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "rgba(232,200,125,0.15)"; }}
+          >
+            <svg viewBox="0 0 24 24" fill="#e8c87d" style={{ width: 26, height: 26, marginLeft: 4 }}>
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          </div>
+        </div>
+      )}
+
+      {/* Controls */}
+      <div
+        className="absolute bottom-0 left-0 right-0"
+        style={{
+          background: "linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%)",
+          padding: "1.5rem 1rem 0.75rem",
+          opacity: playing ? 0 : 1,
+          transition: "opacity 0.3s",
+        }}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.opacity = "1"; }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.opacity = playing ? "0" : "1"; }}
+      >
+        {/* Progress */}
+        <div
+          style={{ height: 3, background: "rgba(255,255,255,0.15)", marginBottom: "0.6rem", cursor: "pointer", position: "relative" }}
+          onClick={handleSeek}
+        >
+          <div style={{ width: `${progress}%`, height: "100%", background: "#e8c87d" }} />
+          <div style={{
+            position: "absolute", top: "50%", left: `${progress}%`,
+            transform: "translate(-50%,-50%)",
+            width: 9, height: 9, borderRadius: "50%", background: "#e8c87d",
+          }} />
+        </div>
+
+        {/* Buttons */}
+        <div className="flex items-center gap-4">
+          <button type="button" onClick={togglePlay} style={{ color: "white", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+            {playing
+              ? <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 18, height: 18 }}><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
+              : <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 18, height: 18 }}><path d="M8 5v14l11-7z" /></svg>
+            }
+          </button>
+          <button type="button" onClick={toggleMute} style={{ color: muted ? "rgba(255,255,255,0.35)" : "white", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+            {muted
+              ? <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 16, height: 16 }}><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" /></svg>
+              : <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 16, height: 16 }}><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" /></svg>
+            }
+          </button>
+          <span className="font-display" style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.45)", letterSpacing: "0.05em" }}>
+            {fmt(currentTime)} / {fmt(duration)}
+          </span>
+          <span className="font-display uppercase ml-auto" style={{ fontSize: "0.6rem", color: "rgba(232,200,125,0.5)", letterSpacing: "0.15em" }}>
+            Official Trailer
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function HomePage({ onNavigate }: { onNavigate: (p: Page) => void }) {
-  const [lightbox, setLightbox] = useState<typeof screenshots[0] | null>(null);  return (
+  const [lightbox, setLightbox] = useState<typeof screenshots[0] | null>(null);
+  const trailerRef = useRef<HTMLDivElement>(null);
+  const stats = useItchStats();
+  const heroStatItems = [
+    { value: stats.views_count,     label: "LƯỢT XEM" },
+    { value: stats.downloads_count, label: "TẢI XUỐNG" },
+    { value: stats.ratings_count,   label: "ĐÁNH GIÁ" },
+  ];
+
+  return (
     <PageFade id="home">
 
       {/* ══ HERO ══ */}
@@ -431,7 +851,7 @@ function HomePage({ onNavigate }: { onNavigate: (p: Page) => void }) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, delay: 0.75 }}
         >
-          <button type="button" className="btn-primary">Xem Trailer</button>
+          <button type="button" className="btn-primary" onClick={() => trailerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })}>Xem Trailer</button>
           <button
             type="button"
             className="btn-ghost"
@@ -439,6 +859,55 @@ function HomePage({ onNavigate }: { onNavigate: (p: Page) => void }) {
           >
             Tìm Hiểu Thêm
           </button>
+        </motion.div>
+
+        {/* ── Hero Stats Row ── */}
+        <motion.div
+          className="mt-16 w-full flex justify-center"
+          style={{ maxWidth: "480px" }}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 1.0 }}
+        >
+          <div
+            className="w-full"
+            style={{ borderTop: "1px solid rgba(232,200,125,0.18)", paddingTop: "1.5rem" }}
+          >
+            <div className="flex items-stretch justify-center" style={{ gap: 0 }}>
+              {heroStatItems.map((item, i) => (
+                <motion.div
+                  key={item.label}
+                  className="flex flex-col items-center justify-center"
+                  style={{
+                    flex: 1,
+                    padding: "0.25rem 0",
+                    borderRight: i < heroStatItems.length - 1
+                      ? "1px solid rgba(255,255,255,0.1)"
+                      : "none",
+                  }}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 1.1 + i * 0.1 }}
+                >
+                  <p
+                    className="font-display font-bold"
+                    style={{ fontSize: "2.5rem", color: "#e8c87d", lineHeight: 1, letterSpacing: "0.02em" }}
+                  >
+                    {item.value != null
+                      ? item.value.toLocaleString()
+                      : <span style={{ color: "rgba(255,255,255,0.2)", fontSize: "1.8rem" }}>—</span>
+                    }
+                  </p>
+                  <p
+                    className="font-display uppercase mt-2"
+                    style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.35)", letterSpacing: "0.3em" }}
+                  >
+                    {item.label}
+                  </p>
+                </motion.div>
+              ))}
+            </div>
+          </div>
         </motion.div>
 
         {/* Scroll cue */}
@@ -597,30 +1066,16 @@ function HomePage({ onNavigate }: { onNavigate: (p: Page) => void }) {
             className="grid gap-16 items-center"
             style={{ gridTemplateColumns: "1fr 1fr" }}
           >
-            {/* Image */}
+            {/* Trailer Video Player */}
             <motion.div
+              ref={trailerRef}
               className="relative overflow-hidden"
               initial={{ opacity: 0, x: -24 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true, amount: 0.3 }}
               transition={{ duration: 0.75 }}
             >
-              <img
-                src="./GameImg/4.png"
-                alt="Nhân vật chính"
-                className="w-full object-cover object-top"
-                style={{ maxHeight: "580px" }}
-              />
-              {/* Right fade */}
-              <div
-                className="absolute inset-y-0 right-0 w-1/3 pointer-events-none"
-                style={{ background: "linear-gradient(to right, transparent, #060810)" }}
-              />
-              {/* Bottom fade */}
-              <div
-                className="absolute bottom-0 left-0 right-0 h-24 pointer-events-none"
-                style={{ background: "linear-gradient(to top, #060810, transparent)" }}
-              />
+              <InlineTrailerPlayer />
               {/* Accent border */}
               <div
                 className="absolute inset-0 pointer-events-none"
@@ -989,15 +1444,19 @@ export default function App() {
     return () => ro.disconnect();
   }, []);
 
+  const totalOffset = navHeight;
+
   return (
-    <div style={{ position: "relative", width: "100%", overflowX: "hidden" }} className="selection:bg-white/10 selection:text-white">
+    <>
       <VideoBackground />
-      <Navbar activePage={activePage} onNavigate={navigate} navRef={navRef} />
-      <PageContainer topOffset={navHeight}>
-        {activePage === "HOME"    && <HomePage key="home" onNavigate={navigate} />}
-        {activePage === "ABOUT"   && <AboutPage key="about" />}
-        {activePage === "CONTACT" && <ContactPage key="contact" />}
-      </PageContainer>
-    </div>
+      <div style={{ width: "100%", overflowX: "hidden" }} className="selection:bg-white/10 selection:text-white">
+        <Navbar activePage={activePage} onNavigate={navigate} navRef={navRef} />
+        <PageContainer topOffset={totalOffset}>
+          {activePage === "HOME"    && <HomePage key="home" onNavigate={navigate} />}
+          {activePage === "ABOUT"   && <AboutPage key="about" />}
+          {activePage === "CONTACT" && <ContactPage key="contact" />}
+        </PageContainer>
+      </div>
+    </>
   );
 }
