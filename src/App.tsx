@@ -93,8 +93,11 @@ function useItchStats() {
       try {
         const r = await fetch(proxies[index]);
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const data: { games?: Array<Record<string, unknown>> } = await r.json();
-        console.log("[itch] Response games count:", data.games?.length ?? 0);
+        const raw = await r.text();
+        console.log("[itch] Raw response:", raw.slice(0, 500));
+        const data: { games?: Array<Record<string, unknown>> } = JSON.parse(raw);
+        console.log("[itch] Parsed keys:", Object.keys(data));
+        console.log("[itch] Games array:", data.games);
         const game = data.games?.find((g) =>
           (g.url as string)?.includes("tiem-sua-xe-chu-tu")
         );
@@ -106,7 +109,7 @@ function useItchStats() {
             ratings_count: (game.ratings_count as number) ?? 0,
           });
         } else {
-          console.warn("[itch] Game not found in list, URLs:", data.games?.map(g => g.url));
+          console.warn("[itch] Game not found, all URLs:", data.games?.map(g => g.url));
         }
       } catch (err) {
         console.warn(`[itch] Proxy ${index} failed:`, err);
