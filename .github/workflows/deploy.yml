@@ -27,40 +27,32 @@ jobs:
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
-      - name: Check env
-        run: |
-          if [ -z "$VITE_ITCH_API_KEY" ]; then
-            echo "❌ VITE_ITCH_API_KEY is EMPTY"
-          else
-            echo "✅ VITE_ITCH_API_KEY is set (length: ${#VITE_ITCH_API_KEY})"
-          fi
-        env:
-          VITE_ITCH_API_KEY: ${{ secrets.VITE_ITCH_API_KEY }}
-
       - name: Fetch itch.io stats
+        env:
+          ITCH_KEY: ${{ secrets.VITE_ITCH_API_KEY }}
         run: |
-          KEY="${{ secrets.VITE_ITCH_API_KEY }}"
-          KEY=$(echo "$KEY" | tr -d '[:space:]')
+          KEY=$(echo "$ITCH_KEY" | tr -d '[:space:]')
           echo "Key length: ${#KEY}"
           RESPONSE=$(curl -sf "https://itch.io/api/1/${KEY}/my-games" || echo '{"games":[]}')
           echo "Response: $RESPONSE"
-          # Extract stats for tiem-sua-xe-chu-tu using python
-          python3 - <<EOF
+          echo "$RESPONSE" > /tmp/itch_response.json
+          python3 -c "
 import json, os
-data = json.loads('''$RESPONSE''')
-games = data.get("games", [])
-game = next((g for g in games if "tiem-sua-xe-chu-tu" in (g.get("url") or "")), None)
+with open('/tmp/itch_response.json') as f:
+    data = json.load(f)
+games = data.get('games', [])
+game = next((g for g in games if 'tiem-sua-xe-chu-tu' in (g.get('url') or '')), None)
 stats = {
-  "views_count": game.get("views_count", 14) if game else 14,
-  "downloads_count": game.get("downloads_count", 0) if game else 0,
-  "ratings_count": game.get("ratings_count", 0) if game else 0,
+  'views_count': game.get('views_count', 14) if game else 14,
+  'downloads_count': game.get('downloads_count', 0) if game else 0,
+  'ratings_count': game.get('ratings_count', 0) if game else 0,
 }
-print("Stats:", stats)
-os.makedirs("public", exist_ok=True)
-with open("public/stats.json", "w") as f:
+print('Stats:', stats)
+os.makedirs('public', exist_ok=True)
+with open('public/stats.json', 'w') as f:
     json.dump(stats, f)
-EOF
-          echo "✅ stats.json written"
+"
+          echo "stats.json written:"
           cat public/stats.json
 
       - name: Build
