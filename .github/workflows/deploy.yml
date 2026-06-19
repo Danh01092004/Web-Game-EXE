@@ -33,26 +33,9 @@ jobs:
         run: |
           KEY=$(echo "$ITCH_KEY" | tr -d '[:space:]')
           echo "Key length: ${#KEY}"
-          RESPONSE=$(curl -sf "https://itch.io/api/1/${KEY}/my-games" || echo '{"games":[]}')
-          echo "Response: $RESPONSE"
-          echo "$RESPONSE" > /tmp/itch_response.json
-          python3 -c "
-import json, os
-with open('/tmp/itch_response.json') as f:
-    data = json.load(f)
-games = data.get('games', [])
-game = next((g for g in games if 'tiem-sua-xe-chu-tu' in (g.get('url') or '')), None)
-stats = {
-  'views_count': game.get('views_count', 14) if game else 14,
-  'downloads_count': game.get('downloads_count', 0) if game else 0,
-  'ratings_count': game.get('ratings_count', 0) if game else 0,
-}
-print('Stats:', stats)
-os.makedirs('public', exist_ok=True)
-with open('public/stats.json', 'w') as f:
-    json.dump(stats, f)
-"
-          echo "stats.json written:"
+          curl -sf "https://itch.io/api/1/${KEY}/my-games" > /tmp/itch_response.json || echo '{"games":[]}' > /tmp/itch_response.json
+          cat /tmp/itch_response.json
+          python3 scripts/fetch_stats.py /tmp/itch_response.json
           cat public/stats.json
 
       - name: Build
