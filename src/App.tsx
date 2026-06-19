@@ -68,12 +68,23 @@ function useItchStats() {
   const [stats, setStats] = useState<GameStats>({ views_count: 14, downloads_count: 0, ratings_count: 0 });
 
   useEffect(() => {
-    const apiUrl = `https://itch.io/api/1/${ITCH_API_KEY}/my-games`;
-    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(apiUrl)}`;
+    if (!ITCH_API_KEY) return; // key not set → keep fallback
 
-    fetch(proxyUrl)
-      .then((r) => r.json())
-      .then((data: { games?: Array<Record<string, unknown>> }) => {
+    const apiUrl = `https://itch.io/api/1/${ITCH_API_KEY}/my-games`;
+
+    // Try multiple CORS proxies in order
+    const proxies = [
+      `https://corsproxy.io/?${encodeURIComponent(apiUrl)}`,
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`,
+      `https://thingproxy.freeboard.io/fetch/${apiUrl}`,
+    ];
+
+    const tryProxy = async (index: number): Promise<void> => {
+      if (index >= proxies.length) return; // all failed → keep fallback
+      try {
+        const r = await fetch(proxies[index]);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data: { games?: Array<Record<string, unknown>> } = await r.json();
         const game = data.games?.find((g) =>
           (g.url as string)?.includes("tiem-sua-xe-chu-tu")
         );
@@ -84,8 +95,12 @@ function useItchStats() {
             ratings_count: (game.ratings_count as number) ?? 0,
           });
         }
-      })
-      .catch(() => {/* keep hardcoded fallback */});
+      } catch {
+        tryProxy(index + 1); // try next proxy
+      }
+    };
+
+    tryProxy(0);
   }, []);
 
   return stats;
@@ -102,7 +117,7 @@ function VideoBackground() {
           filter: "brightness(0.32) saturate(0.8)",
           pointerEvents: "none",
         }}
-        src="./Trailer_ne.mp4"
+        src="./Movie_001.mp4"
         autoPlay loop muted playsInline
       />
       {/* Multi-stop overlay for cinematic depth */}
