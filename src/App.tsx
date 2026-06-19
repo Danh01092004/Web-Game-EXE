@@ -56,7 +56,6 @@ const screenshots = [
 /* ════════════════════════════════════════════════
    ITCH STATS
 ════════════════════════════════════════════════ */
-const ITCH_API_KEY = import.meta.env.VITE_ITCH_API_KEY as string;
 
 interface GameStats {
   views_count: number;
@@ -68,56 +67,14 @@ function useItchStats() {
   const [stats, setStats] = useState<GameStats>({ views_count: 14, downloads_count: 0, ratings_count: 0 });
 
   useEffect(() => {
-    if (!ITCH_API_KEY) {
-      console.warn("[itch] API key not set, using fallback");
-      return;
-    }
-
-    console.log("[itch] API key present, length:", ITCH_API_KEY.length);
-
-    const apiUrl = `https://itch.io/api/1/${ITCH_API_KEY}/my-games`;
-
-    // Try multiple CORS proxies in order
-    const proxies = [
-      `https://corsproxy.io/?${encodeURIComponent(apiUrl)}`,
-      `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`,
-      `https://thingproxy.freeboard.io/fetch/${apiUrl}`,
-    ];
-
-    const tryProxy = async (index: number): Promise<void> => {
-      if (index >= proxies.length) {
-        console.warn("[itch] All proxies failed, using fallback");
-        return;
-      }
-      console.log(`[itch] Trying proxy ${index}:`, proxies[index].split("?")[0]);
-      try {
-        const r = await fetch(proxies[index]);
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const raw = await r.text();
-        console.log("[itch] Raw response:", raw.slice(0, 500));
-        const data: { games?: Array<Record<string, unknown>> } = JSON.parse(raw);
-        console.log("[itch] Parsed keys:", Object.keys(data));
-        console.log("[itch] Games array:", data.games);
-        const game = data.games?.find((g) =>
-          (g.url as string)?.includes("tiem-sua-xe-chu-tu")
-        );
-        if (game) {
-          console.log("[itch] Game found:", game.url, { views: game.views_count, downloads: game.downloads_count });
-          setStats({
-            views_count: (game.views_count as number) ?? 14,
-            downloads_count: (game.downloads_count as number) ?? 0,
-            ratings_count: (game.ratings_count as number) ?? 0,
-          });
-        } else {
-          console.warn("[itch] Game not found, all URLs:", data.games?.map(g => g.url));
+    fetch("./stats.json")
+      .then((r) => r.json())
+      .then((data: GameStats) => {
+        if (data && typeof data.views_count === "number") {
+          setStats(data);
         }
-      } catch (err) {
-        console.warn(`[itch] Proxy ${index} failed:`, err);
-        tryProxy(index + 1);
-      }
-    };
-
-    tryProxy(0);
+      })
+      .catch(() => {/* keep hardcoded fallback */});
   }, []);
 
   return stats;
