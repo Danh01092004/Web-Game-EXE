@@ -68,7 +68,12 @@ function useItchStats() {
   const [stats, setStats] = useState<GameStats>({ views_count: 14, downloads_count: 0, ratings_count: 0 });
 
   useEffect(() => {
-    if (!ITCH_API_KEY) return; // key not set → keep fallback
+    if (!ITCH_API_KEY) {
+      console.warn("[itch] API key not set, using fallback");
+      return;
+    }
+
+    console.log("[itch] API key present, length:", ITCH_API_KEY.length);
 
     const apiUrl = `https://itch.io/api/1/${ITCH_API_KEY}/my-games`;
 
@@ -80,23 +85,32 @@ function useItchStats() {
     ];
 
     const tryProxy = async (index: number): Promise<void> => {
-      if (index >= proxies.length) return; // all failed → keep fallback
+      if (index >= proxies.length) {
+        console.warn("[itch] All proxies failed, using fallback");
+        return;
+      }
+      console.log(`[itch] Trying proxy ${index}:`, proxies[index].split("?")[0]);
       try {
         const r = await fetch(proxies[index]);
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const data: { games?: Array<Record<string, unknown>> } = await r.json();
+        console.log("[itch] Response games count:", data.games?.length ?? 0);
         const game = data.games?.find((g) =>
           (g.url as string)?.includes("tiem-sua-xe-chu-tu")
         );
         if (game) {
+          console.log("[itch] Game found:", game.url, { views: game.views_count, downloads: game.downloads_count });
           setStats({
             views_count: (game.views_count as number) ?? 14,
             downloads_count: (game.downloads_count as number) ?? 0,
             ratings_count: (game.ratings_count as number) ?? 0,
           });
+        } else {
+          console.warn("[itch] Game not found in list, URLs:", data.games?.map(g => g.url));
         }
-      } catch {
-        tryProxy(index + 1); // try next proxy
+      } catch (err) {
+        console.warn(`[itch] Proxy ${index} failed:`, err);
+        tryProxy(index + 1);
       }
     };
 
