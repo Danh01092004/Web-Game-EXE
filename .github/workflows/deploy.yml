@@ -27,16 +27,23 @@ jobs:
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
-      - name: Fetch itch.io stats
+      - name: Update itch.io stats
         env:
           ITCH_KEY: ${{ secrets.VITE_ITCH_API_KEY }}
         run: |
           KEY=$(echo "$ITCH_KEY" | tr -d '[:space:]')
-          echo "Key length: ${#KEY}"
-          curl -sf "https://itch.io/api/1/${KEY}/my-games" > /tmp/itch_response.json || echo '{"games":[]}' > /tmp/itch_response.json
+          echo "Fetching stats with key length: ${#KEY}"
+          HTTP_STATUS=$(curl -s -o /tmp/itch_response.json -w "%{http_code}" "https://itch.io/api/1/${KEY}/my-games")
+          echo "HTTP status: $HTTP_STATUS"
           cat /tmp/itch_response.json
-          python3 scripts/fetch_stats.py /tmp/itch_response.json
-          cat public/stats.json
+          if [ "$HTTP_STATUS" = "200" ]; then
+            python3 scripts/fetch_stats.py /tmp/itch_response.json
+            echo "Stats updated:"
+            cat public/stats.json
+          else
+            echo "API call failed, keeping existing stats.json"
+            cat public/stats.json
+          fi
 
       - name: Build
         run: npm run build
