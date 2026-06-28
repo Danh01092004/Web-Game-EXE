@@ -2,8 +2,8 @@ name: Update itch.io Stats
 
 on:
   schedule:
-    - cron: "0 */6 * * *"   # every 6 hours
-  workflow_dispatch:          # allow manual trigger from Actions tab
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -23,17 +23,22 @@ jobs:
         env:
           ITCH_KEY: ${{ secrets.VITE_ITCH_API_KEY }}
         run: |
-          KEY=$(echo "$ITCH_KEY" | tr -d '[:space:]')
+          KEY=$(printf '%s' "$ITCH_KEY" | tr -d '[:space:]')
           echo "Key length: ${#KEY}"
+          if [ -z "$KEY" ]; then
+            echo "ERROR: ITCH_KEY is empty - check secret name VITE_ITCH_API_KEY"
+            exit 1
+          fi
           HTTP_CODE=$(curl -s -o /tmp/resp.json -w "%{http_code}" "https://itch.io/api/1/${KEY}/my-games")
-          echo "HTTP: $HTTP_CODE"
-          cat /tmp/resp.json
+          echo "HTTP status: $HTTP_CODE"
+          head -c 200 /tmp/resp.json
+          echo ""
           if [ "$HTTP_CODE" != "200" ]; then
-            echo "API failed, keeping existing stats"
+            echo "API returned $HTTP_CODE - skipping update"
             exit 0
           fi
           python3 scripts/fetch_stats.py /tmp/resp.json
-          echo "New stats:"
+          echo "Updated stats:"
           cat public/stats.json
 
       - uses: actions/setup-node@v4
