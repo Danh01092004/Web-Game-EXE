@@ -12,7 +12,9 @@ const SUPABASE_ANON_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
 const isSupabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 
 export async function getComments(): Promise<ItchComment[]> {
+  console.log("import.meta.env =", import.meta.env);
   console.log("getComments called, isSupabaseConfigured =", isSupabaseConfigured, "SUPABASE_URL =", SUPABASE_URL);
+  
   if (isSupabaseConfigured) {
     try {
       console.log("Fetching comments from Supabase...");
@@ -62,6 +64,7 @@ export async function createComment(
   textContent: string
 ): Promise<ItchComment> {
   console.log("Calling createComment");
+  console.log("import.meta.env =", import.meta.env);
   console.log("author =", authorName);
   console.log("content =", textContent);
   console.log("SUPABASE_URL =", SUPABASE_URL);
