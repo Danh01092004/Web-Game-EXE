@@ -12,8 +12,10 @@ const SUPABASE_ANON_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
 const isSupabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 
 export async function getComments(): Promise<ItchComment[]> {
+  console.log("getComments called, isSupabaseConfigured =", isSupabaseConfigured, "SUPABASE_URL =", SUPABASE_URL);
   if (isSupabaseConfigured) {
     try {
+      console.log("Fetching comments from Supabase...");
       const res = await fetch(
         `${SUPABASE_URL}/rest/v1/comments?select=*&order=created_at.desc`,
         {
@@ -41,7 +43,7 @@ export async function getComments(): Promise<ItchComment[]> {
     }
   }
 
-  // Fallback to static comments.json if Supabase is not configured or network fetch fails
+  console.warn("Supabase not configured or GET failed, reading comments.json...");
   try {
     const res = await fetch("./comments.json");
     if (res.ok) {
@@ -59,6 +61,12 @@ export async function createComment(
   authorName: string,
   textContent: string
 ): Promise<ItchComment> {
+  console.log("Calling createComment");
+  console.log("author =", authorName);
+  console.log("content =", textContent);
+  console.log("SUPABASE_URL =", SUPABASE_URL);
+  console.log("SUPABASE_KEY exists =", !!SUPABASE_ANON_KEY);
+
   const author = authorName.trim();
   const content = textContent.trim();
   if (!author || !content) {
@@ -66,6 +74,7 @@ export async function createComment(
   }
 
   if (isSupabaseConfigured) {
+    console.log("Before fetch POST to Supabase...");
     const res = await fetch(`${SUPABASE_URL}/rest/v1/comments`, {
       method: "POST",
       headers: {
@@ -77,10 +86,11 @@ export async function createComment(
       body: JSON.stringify({ author, content }),
     });
 
+    console.log("After fetch POST, status =", res.status);
     if (!res.ok) {
       const errText = await res.text().catch(() => "");
-      console.error(`Supabase POST error (${res.status}):`, errText);
-      throw new Error(`Không thể gửi bình luận (${res.status}). Vui lòng thử lại.`);
+      console.error("Supabase POST error:", res.status, errText);
+      throw new Error(`Lỗi máy chủ (${res.status}): ${errText || "Không thể kết nối CSDL Supabase"}`);
     }
 
     const data = await res.json();
@@ -93,8 +103,7 @@ export async function createComment(
     };
   }
 
-  // If Supabase is not configured:
-  // Allow local mock comment for local dev server, but fail in production builds
+  console.warn("isSupabaseConfigured is FALSE! SUPABASE_URL or KEY is missing!");
   if (import.meta.env.DEV) {
     return {
       id: `local-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
@@ -104,5 +113,5 @@ export async function createComment(
     };
   }
 
-  throw new Error("Cấu hình kết nối máy chủ chưa hoàn tất. Vui lòng thử lại sau.");
+  throw new Error("Cấu hình máy chủ CSDL (VITE_SUPABASE_URL) chưa được thiết lập trên GitHub Secrets.");
 }

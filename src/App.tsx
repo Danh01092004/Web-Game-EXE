@@ -831,12 +831,16 @@ function CommentSection() {
 
     setSubmitting(true);
     try {
+      console.log("Submit clicked");
+      console.log("author =", nameVal);
+      console.log("content =", contentVal);
       await addComment(nameVal, contentVal);
       setContent("");
       setSuccessMsg("Gửi bình luận thành công!");
       setTimeout(() => setSuccessMsg(""), 4000);
-    } catch {
-      setFormError("Không thể gửi bình luận. Vui lòng thử lại.");
+    } catch (error: any) {
+      console.error("Submit comment error:", error);
+      setFormError(error?.message || "Không thể gửi bình luận. Vui lòng thử lại.");
     } finally {
       setSubmitting(false);
     }
