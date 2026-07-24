@@ -6,6 +6,9 @@ import {
   useScroll,
   useTransform,
 } from "motion/react";
+import { getComments, createComment, type ItchComment } from "./services/commentService";
+
+export type { ItchComment };
 
 /* ─── Types ─── */
 type Page = "HOME" | "ABOUT" | "CONTACT";
@@ -84,14 +87,6 @@ function useItchStats() {
    ITCH COMMENTS
 ════════════════════════════════════════════════ */
 
-export interface ItchComment {
-  id: string;
-  author: string;
-  avatarUrl?: string;
-  content: string;
-  createdAt: string;
-}
-
 function useItchComments() {
   const [comments, setComments] = useState<ItchComment[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -101,43 +96,8 @@ function useItchComments() {
     setLoading(true);
     setError(null);
     try {
-      let userComments: ItchComment[] = [];
-      try {
-        const localCustom = localStorage.getItem("itch_local_comments");
-        if (localCustom) {
-          const parsed = JSON.parse(localCustom);
-          if (Array.isArray(parsed)) userComments = parsed;
-        }
-      } catch (e) {
-        console.warn("Corrupted local comments cleared:", e);
-        localStorage.removeItem("itch_local_comments");
-        userComments = [];
-      }
-
-      let fileComments: ItchComment[] = [];
-      try {
-        const res = await fetch("./comments.json");
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data)) fileComments = data;
-        }
-      } catch (e) {
-        console.warn("Could not load comments.json:", e);
-      }
-
-      // Merge and deduplicate by unique ID
-      const combined = [...userComments, ...fileComments];
-      const seen = new Set<string>();
-      const uniqueComments: ItchComment[] = [];
-      for (const c of combined) {
-        const key = String(c.id || `${c.author}-${c.createdAt}`);
-        if (!seen.has(key)) {
-          seen.add(key);
-          uniqueComments.push(c);
-        }
-      }
-
-      setComments(uniqueComments);
+      const data = await getComments();
+      setComments(data);
     } catch (err: any) {
       setError(err?.message || "Lỗi khi tải bình luận.");
     } finally {
@@ -150,31 +110,7 @@ function useItchComments() {
   }, []);
 
   const addComment = async (authorName: string, textContent: string) => {
-    const trimmedAuthor = authorName.trim();
-    const trimmedContent = textContent.trim();
-    if (!trimmedAuthor || !trimmedContent) return;
-
-    const newComment: ItchComment = {
-      id: `local-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      author: trimmedAuthor,
-      content: trimmedContent,
-      createdAt: new Date().toISOString(),
-    };
-
-    let existing: ItchComment[] = [];
-    try {
-      const localCustom = localStorage.getItem("itch_local_comments");
-      if (localCustom) {
-        const parsed = JSON.parse(localCustom);
-        if (Array.isArray(parsed)) existing = parsed;
-      }
-    } catch {
-      existing = [];
-    }
-
-    const updated = [newComment, ...existing];
-    localStorage.setItem("itch_local_comments", JSON.stringify(updated));
-
+    await createComment(authorName, textContent);
     await fetchComments();
   };
 
