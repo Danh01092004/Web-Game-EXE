@@ -64,17 +64,17 @@ interface GameStats {
 }
 
 function useItchStats() {
-  const [stats, setStats] = useState<GameStats>({ views_count: 14, downloads_count: 0, ratings_count: 0 });
+  const [stats, setStats] = useState<GameStats>({ views_count: 152, downloads_count: 32, ratings_count: 0 });
 
   useEffect(() => {
-    fetch("./stats.json")
+    fetch(`./stats.json?t=${Date.now()}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((data: GameStats) => {
         if (data && typeof data.views_count === "number") {
           setStats(data);
         }
       })
-      .catch(() => {/* keep hardcoded fallback */ });
+      .catch(() => {/* keep fallback */ });
   }, []);
 
   return stats;

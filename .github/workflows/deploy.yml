@@ -3,9 +3,12 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -16,8 +19,29 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
     steps:
       - uses: actions/checkout@v4
+
+      - name: Fetch itch.io stats
+        env:
+          ITCH_KEY: ${{ secrets.VITE_ITCH_API_KEY }}
+        run: |
+          KEY=$(printf '%s' "$ITCH_KEY" | tr -d '[:space:]')
+          echo "Key length: ${#KEY}"
+          if [ -n "$KEY" ]; then
+            HTTP_CODE=$(curl -s -o /tmp/resp.json -w "%{http_code}" "https://itch.io/api/1/${KEY}/my-games")
+            echo "HTTP status: $HTTP_CODE"
+            if [ "$HTTP_CODE" = "200" ]; then
+              python3 scripts/fetch_stats.py /tmp/resp.json
+            else
+              python3 scripts/fetch_stats.py
+            fi
+          else
+            python3 scripts/fetch_stats.py
+          fi
+          cat public/stats.json
 
       - uses: actions/setup-node@v4
         with:
