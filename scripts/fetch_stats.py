@@ -18,3 +18,13 @@ print("Stats:", stats)
 os.makedirs("public", exist_ok=True)
 with open("public/stats.json", "w") as f:
     json.dump(stats, f)
+
+if not os.path.exists("public/comments.json"):
+    default_comments = [
+        {"id": "1", "author": "Minh Tuấn", "content": "Game có cốt truyện rất lôi cuốn và đậm chất truyền thống Việt Nam! Mong đợi bản phát hành chính thức.", "createdAt": "2026-06-15T14:20:00Z"},
+        {"id": "2", "author": "Hoàng Nam", "content": "Đồ họa đẹp mắt, âm thanh và không khí hẻm phố tạo cảm giác rất chân thực. Đã tải demo trải nghiệm thử!", "createdAt": "2026-06-18T09:45:00Z"},
+        {"id": "3", "author": "Dragon Gamer", "content": "Một sản phẩm game Việt chất lượng từ đội ngũ sinh viên FPT! Chúc nhóm Dragon Tail thành công rực rỡ.", "createdAt": "2026-06-22T18:10:00Z"}
+    ]
+    with open("public/comments.json", "w", encoding="utf-8") as f:
+        json.dump(default_comments, f, ensure_ascii=False, indent=2)
+

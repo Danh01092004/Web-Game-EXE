@@ -18,12 +18,12 @@ const navItems: { label: Page }[] = [
 ];
 
 const teamMembers = [
-  { name: "Phan Thiên Bảo",     role: "Game Designer" },
-  { name: "Huỳnh Đức Anh",      role: "Lead Developer" },
-  { name: "Trần Tấn Phát",      role: "Programmer" },
-  { name: "Vũ Nguyễn Phương",   role: "Artist" },
+  { name: "Phan Thiên Bảo", role: "Game Designer" },
+  { name: "Huỳnh Đức Anh", role: "Lead Developer" },
+  { name: "Trần Tấn Phát", role: "Programmer" },
+  { name: "Vũ Nguyễn Phương", role: "Artist" },
   { name: "Lê Nguyễn Gia Hưng", role: "Programmer" },
-  { name: "Nguyễn Hoàng Dũng",  role: "QA & Story" },
+  { name: "Nguyễn Hoàng Dũng", role: "QA & Story" },
 ];
 
 const screenshots = [
@@ -74,10 +74,111 @@ function useItchStats() {
           setStats(data);
         }
       })
-      .catch(() => {/* keep hardcoded fallback */});
+      .catch(() => {/* keep hardcoded fallback */ });
   }, []);
 
   return stats;
+}
+
+/* ════════════════════════════════════════════════
+   ITCH COMMENTS
+════════════════════════════════════════════════ */
+
+export interface ItchComment {
+  id: string;
+  author: string;
+  avatarUrl?: string;
+  content: string;
+  createdAt: string;
+}
+
+function useItchComments() {
+  const [comments, setComments] = useState<ItchComment[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchComments = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      let userComments: ItchComment[] = [];
+      try {
+        const localCustom = localStorage.getItem("itch_local_comments");
+        if (localCustom) {
+          const parsed = JSON.parse(localCustom);
+          if (Array.isArray(parsed)) userComments = parsed;
+        }
+      } catch (e) {
+        console.warn("Corrupted local comments cleared:", e);
+        localStorage.removeItem("itch_local_comments");
+        userComments = [];
+      }
+
+      let fileComments: ItchComment[] = [];
+      try {
+        const res = await fetch("./comments.json");
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) fileComments = data;
+        }
+      } catch (e) {
+        console.warn("Could not load comments.json:", e);
+      }
+
+      // Merge and deduplicate by unique ID
+      const combined = [...userComments, ...fileComments];
+      const seen = new Set<string>();
+      const uniqueComments: ItchComment[] = [];
+      for (const c of combined) {
+        const key = String(c.id || `${c.author}-${c.createdAt}`);
+        if (!seen.has(key)) {
+          seen.add(key);
+          uniqueComments.push(c);
+        }
+      }
+
+      setComments(uniqueComments);
+    } catch (err: any) {
+      setError(err?.message || "Lỗi khi tải bình luận.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchComments();
+  }, []);
+
+  const addComment = async (authorName: string, textContent: string) => {
+    const trimmedAuthor = authorName.trim();
+    const trimmedContent = textContent.trim();
+    if (!trimmedAuthor || !trimmedContent) return;
+
+    const newComment: ItchComment = {
+      id: `local-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      author: trimmedAuthor,
+      content: trimmedContent,
+      createdAt: new Date().toISOString(),
+    };
+
+    let existing: ItchComment[] = [];
+    try {
+      const localCustom = localStorage.getItem("itch_local_comments");
+      if (localCustom) {
+        const parsed = JSON.parse(localCustom);
+        if (Array.isArray(parsed)) existing = parsed;
+      }
+    } catch {
+      existing = [];
+    }
+
+    const updated = [newComment, ...existing];
+    localStorage.setItem("itch_local_comments", JSON.stringify(updated));
+
+    await fetchComments();
+  };
+
+  return { comments, loading, error, addComment, refreshComments: fetchComments };
 }
 
 function VideoBackground() {
@@ -764,14 +865,302 @@ function InlineTrailerPlayer() {
   );
 }
 
+/* ════════════════════════════════════════════════
+   COMMENT SECTION
+════════════════════════════════════════════════ */
+function CommentSection() {
+  const { comments, loading, error, addComment, refreshComments } = useItchComments();
+  const [author, setAuthor] = useState("");
+  const [content, setContent] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError("");
+    setSuccessMsg("");
+
+    const nameVal = author.trim();
+    const contentVal = content.trim();
+
+    if (!nameVal) {
+      setFormError("Vui lòng nhập tên của bạn.");
+      return;
+    }
+    if (!contentVal) {
+      setFormError("Vui lòng nhập nội dung bình luận.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await addComment(nameVal, contentVal);
+      setContent("");
+      setSuccessMsg("Gửi bình luận thành công!");
+      setTimeout(() => setSuccessMsg(""), 4000);
+    } catch {
+      setFormError("Không thể gửi bình luận. Vui lòng thử lại.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const formatRelativeTime = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      const now = new Date();
+      const diffSec = Math.floor((now.getTime() - d.getTime()) / 1000);
+      if (diffSec < 45) return "Vừa xong";
+      const diffMin = Math.floor(diffSec / 60);
+      if (diffMin < 60) return `${diffMin} phút trước`;
+      const diffHour = Math.floor(diffMin / 60);
+      if (diffHour < 24) return `${diffHour} giờ trước`;
+      const diffDay = Math.floor(diffHour / 24);
+      if (diffDay < 7) return `${diffDay} ngày trước`;
+      return d.toLocaleDateString("vi-VN", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const getInitials = (name: string) => {
+    const words = name.trim().split(" ");
+    if (words.length >= 2) {
+      return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+    }
+    return (name[0] || "U").toUpperCase();
+  };
+
+  return (
+    <section id="comments" style={{ padding: "0 0 7rem 0" }}>
+      <div className="container">
+        <div className="text-center mb-12">
+          <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}>
+            <Eyebrow>Cộng Đồng & Bình Luận</Eyebrow>
+          </motion.div>
+          <motion.h2
+            className="font-display font-bold text-white uppercase"
+            style={{ fontSize: "clamp(2rem, 4vw, 3rem)", letterSpacing: "0.04em", marginTop: "0.75rem" }}
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+          >
+            Ý Kiến Người Chơi
+          </motion.h2>
+        </div>
+
+        <div className="grid md:grid-cols-12 gap-8 items-start">
+          {/* Form */}
+          <motion.div
+            className="md:col-span-5 p-6 md:p-8 rounded-none border border-white/10 relative overflow-hidden"
+            style={{ background: "rgba(6,8,16,0.85)", backdropFilter: "blur(16px)" }}
+            initial={{ opacity: 0, x: -20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-display font-semibold text-white uppercase text-lg tracking-wider">
+                Để Lại Bình Luận
+              </h3>
+              <span className="label-eyebrow" style={{ opacity: 0.5, fontSize: "0.55rem" }}>
+                Feedback
+              </span>
+            </div>
+
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              <div>
+                <label className="flex justify-between items-center label-eyebrow mb-2" style={{ opacity: 0.7 }}>
+                  <span>Tên của bạn <span className="text-[#e8c87d]">*</span></span>
+                  <span className="text-[0.6rem] text-white/30 lowercase">{author.length}/50</span>
+                </label>
+                <input
+                  type="text"
+                  value={author}
+                  onChange={(e) => setAuthor(e.target.value)}
+                  placeholder="Nhập tên của bạn..."
+                  className="w-full px-4 py-3 bg-white/5 border border-white/15 text-white placeholder-white/30 text-sm focus:outline-none focus:border-[#e8c87d] transition-colors"
+                  maxLength={50}
+                />
+              </div>
+
+              <div>
+                <label className="flex justify-between items-center label-eyebrow mb-2" style={{ opacity: 0.7 }}>
+                  <span>Nội dung bình luận <span className="text-[#e8c87d]">*</span></span>
+                  <span className="text-[0.6rem] text-white/30 lowercase">{content.length}/500</span>
+                </label>
+                <textarea
+                  rows={4}
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  placeholder="Chia sẻ suy nghĩ của bạn về Tiệm Sửa Xe Chú 4..."
+                  className="w-full px-4 py-3 bg-white/5 border border-white/15 text-white placeholder-white/30 text-sm focus:outline-none focus:border-[#e8c87d] transition-colors resize-none"
+                  maxLength={500}
+                />
+              </div>
+
+              {formError && (
+                <motion.p
+                  className="text-red-400 text-xs font-sans mt-1 p-2 border border-red-500/20 bg-red-500/10"
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                >
+                  {formError}
+                </motion.p>
+              )}
+
+              {successMsg && (
+                <motion.p
+                  className="text-[#e8c87d] text-xs font-sans mt-1 p-2 border border-[#e8c87d]/30 bg-[#e8c87d]/10"
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                >
+                  {successMsg}
+                </motion.p>
+              )}
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="btn-primary w-full mt-2 flex items-center justify-center gap-2"
+                style={{ opacity: submitting ? 0.7 : 1 }}
+              >
+                {submitting ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4 text-black" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    <span>ĐANG GỬI...</span>
+                  </>
+                ) : (
+                  <span>GỬI BÌNH LUẬN</span>
+                )}
+              </button>
+            </form>
+          </motion.div>
+
+          {/* List */}
+          <motion.div
+            className="md:col-span-7 flex flex-col gap-4"
+            initial={{ opacity: 0, x: 20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <span className="font-display font-medium uppercase text-xs text-white/50 tracking-widest">
+                Danh sách ({comments.length})
+              </span>
+              <button
+                type="button"
+                onClick={refreshComments}
+                className="text-xs font-display uppercase tracking-widest text-[#e8c87d] hover:underline flex items-center gap-1"
+              >
+                <span>Làm mới</span>
+              </button>
+            </div>
+
+            {loading ? (
+              <div className="flex flex-col gap-3">
+                {[1, 2, 3].map((n) => (
+                  <div
+                    key={n}
+                    className="p-5 border border-white/10 flex gap-4 items-start animate-pulse"
+                    style={{ background: "rgba(6,8,16,0.85)" }}
+                  >
+                    <div className="w-10 h-10 bg-white/10 shrink-0" />
+                    <div className="flex-1 flex flex-col gap-2">
+                      <div className="h-4 bg-white/10 w-1/3" />
+                      <div className="h-3 bg-white/10 w-full" />
+                      <div className="h-3 bg-white/10 w-2/3" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : error ? (
+              <div className="p-8 text-center border border-red-500/20" style={{ background: "rgba(6,8,16,0.85)" }}>
+                <p className="text-red-400 font-sans text-sm mb-3">{error}</p>
+                <button
+                  type="button"
+                  onClick={refreshComments}
+                  className="btn-ghost py-2 px-4 text-xs"
+                >
+                  Thử lại
+                </button>
+              </div>
+            ) : comments.length === 0 ? (
+              <div className="p-10 text-center border border-white/10 flex flex-col items-center gap-3" style={{ background: "rgba(6,8,16,0.85)" }}>
+                <svg className="w-10 h-10 text-white/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+                <p className="text-white/50 font-sans text-sm">
+                  Chưa có bình luận nào. Hãy là người đầu tiên để lại ý kiến!
+                </p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3 max-h-[540px] overflow-y-auto pr-1">
+                <AnimatePresence initial={false}>
+                  {comments.map((item) => (
+                    <motion.div
+                      key={item.id}
+                      className="p-5 border border-white/10 hover:border-[#e8c87d]/40 transition-all duration-300 flex gap-4 items-start group"
+                      style={{ background: "rgba(6,8,16,0.85)", backdropFilter: "blur(8px)" }}
+                      initial={{ opacity: 0, y: 14 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.96 }}
+                      transition={{ duration: 0.35 }}
+                    >
+                      <div
+                        className="w-10 h-10 shrink-0 font-display font-bold text-[#e8c87d] flex items-center justify-center text-xs group-hover:scale-105 transition-transform"
+                        style={{
+                          background: "linear-gradient(135deg, rgba(232,200,125,0.2) 0%, rgba(184,150,61,0.08) 100%)",
+                          border: "1px solid rgba(232,200,125,0.4)",
+                          boxShadow: "0 0 12px rgba(232,200,125,0.05)",
+                        }}
+                      >
+                        {getInitials(item.author)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <span className="font-display font-semibold text-white text-sm tracking-wide group-hover:text-[#e8c87d] transition-colors">
+                            {item.author}
+                          </span>
+                          <span className="text-[0.68rem] text-white/40 font-mono shrink-0">
+                            {formatRelativeTime(item.createdAt)}
+                          </span>
+                        </div>
+                        <p className="text-white/70 text-sm leading-relaxed break-words">
+                          {item.content}
+                        </p>
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
+            )}
+          </motion.div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function HomePage({ onNavigate }: { onNavigate: (p: Page) => void }) {
   const [lightbox, setLightbox] = useState<typeof screenshots[0] | null>(null);
   const trailerRef = useRef<HTMLDivElement>(null);
   const stats = useItchStats();
   const heroStatItems = [
-    { value: stats.views_count,     label: "LƯỢT XEM" },
+    { value: stats.views_count, label: "LƯỢT XEM" },
     { value: stats.downloads_count, label: "TẢI XUỐNG" },
-    { value: stats.ratings_count,   label: "ĐÁNH GIÁ" },
+    { value: stats.ratings_count, label: "ĐÁNH GIÁ" },
   ];
 
   return (
@@ -1160,6 +1549,9 @@ function HomePage({ onNavigate }: { onNavigate: (p: Page) => void }) {
         </div>
       </section>
 
+      {/* ══ COMMENTS ══ */}
+      <CommentSection />
+
     </PageFade>
   );
 }
@@ -1441,8 +1833,8 @@ export default function App() {
       <div style={{ width: "100%", overflowX: "hidden" }} className="selection:bg-white/10 selection:text-white">
         <Navbar activePage={activePage} onNavigate={navigate} navRef={navRef} />
         <PageContainer topOffset={totalOffset}>
-          {activePage === "HOME"    && <HomePage key="home" onNavigate={navigate} />}
-          {activePage === "ABOUT"   && <AboutPage key="about" />}
+          {activePage === "HOME" && <HomePage key="home" onNavigate={navigate} />}
+          {activePage === "ABOUT" && <AboutPage key="about" />}
           {activePage === "CONTACT" && <ContactPage key="contact" />}
         </PageContainer>
       </div>
